@@ -1,0 +1,18 @@
+---
+title: "RSV Trial"
+date: today
+date-modified: last-modified
+---
+
+This site contains notes, data summaries and simulation results for a pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
+
+All the code can be found on github.
+To access it, use the icon to the top right of the page.
+
+
+
+
+
+
+
+

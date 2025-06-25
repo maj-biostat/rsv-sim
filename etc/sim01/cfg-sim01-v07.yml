@@ -1,0 +1,39 @@
+default:
+  desc: "Treatment increases chance of RSV-LRI"
+  nsim: 100
+  mc_cores: 40
+  # example trials
+  nex: 3
+  N_pt: [400, 200, 200, 200]
+  # 60% in alice = 1, darwin = 2
+  reg_alloc: 0.60
+  # 45% remote = 2, urban = 1 for alice 
+  loc_alloc_a: 0.45
+  # 65% remote = 2, urban = 1 for darwin = 2
+  loc_alloc_d: 0.65
+  
+  # model parameters
+  # reference logodds from which all others deviate
+  bmu: 0.1 
+  # effect of being in darwin relative to alice
+  breg: [0, -0.03] 
+  # effect of being remote relative to urban
+  # assume the effect of remoteness is the same irrespective of whether 
+  # you are in alice or darwin
+  bloc: [0, 0.02] 
+  # intervention
+  btrt: [0,   0.01] 
+  
+  # priors
+  pri_a: [-2, 0.4] # mean, scale for each par set
+  pri_b_reg: [0, 1]
+  pri_b_loc: [0, 1]
+  pri_b_trt: [0, 1]
+  
+  # decision reference values
+  dec_delta_sup: 0
+  dec_delta_fut: -0.02
+  # decision probability thresholds
+  dec_thresh_sup: 0.975
+  dec_thresh_fut: 0.250
+    

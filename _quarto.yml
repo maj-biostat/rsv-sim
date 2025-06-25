@@ -1,0 +1,63 @@
+project:
+  type: website
+  execute-dir: project
+  render: 
+    - "*.qmd"
+    - "!reports/sim01-report.qmd"
+
+website:
+  title: "RSV Trial - design notes and simulations"
+  navbar:
+    tools:
+      - icon: github
+        menu:
+          - text: Source Code
+            url:  https://github.com/maj-biostat/rsv-sim
+          - text: Report a Bug
+            url:  https://github.com/maj-biostat/rsv-sim/issues
+  sidebar:
+    style: "floating"
+    search: true
+    contents:
+      - index.qmd
+      - notebooks/about.qmd
+          
+format:
+  html:
+    # include-in-header: etc/mathjax.html
+    theme:
+      - sandstone
+    toc: true
+    code-fold: true
+    code-line-numbers: true
+    code-block-background: true
+    toc-location: right
+    toc-title: "Contents"
+    toc-depth: 4
+    toc-expand: true
+    fig-width: 6
+    fig-height: 4
+    fig-dpi: 300
+    fig-cap-location: margin
+    tbl-cap-location: margin
+    format-links: true
+    html-math-method: mathjax
+    classoption: fleqn
+    highlight-style: arrow
+    fontsize: 1em
+    link-external-icon: true
+    link-external-newwindow: true
+    link-external-filter: '^(?:http:|https:)\/\/github\.com'
+    comments:
+      hypothesis: true
+    grid:
+      sidebar-width: 200px
+      body-width: 900px
+      margin-width: 200px
+      gutter-width: 1.5rem
+    embed-resources: true
+
+  
+
+
+

@@ -1,0 +1,4 @@
+default:
+  db_name: "./data/db-roadmap-sim.sqlite"
+  data_cores: 5
+
