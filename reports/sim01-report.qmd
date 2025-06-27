@@ -137,23 +137,23 @@ cannot be bothered to implement it in anything else at the moment).
 
 # Introduction
 
-This simulation report documents the current set of simulations for the operating characteristics for the RSV study.
-The simulation report is an operational document that will be updated, as necessary, over the course of the study.
+This report documents the simulation approach and results for the operating characteristics for the RSV study.
+The report is an operational document that will be updated, as necessary, over the course of the study.
 It should be read in conjunction with the relevant version of the statistical analysis plan.
 
-We provide the data generation assumptions, modelling approaches, scenarios and results that were used to explore the design operating characteristics.
+We provide the data generation assumptions, modelling approaches, scenarios and results that were used to explore the design.
 
- These results are based on simulation ID `r sim_lab` with `r N_sims` trials run per scenario.
+ These results are based on simulation ``r sim_lab`` with ``r N_sims`` simulated trials run per scenario.
 
 # Data generation
 
-Data is generated based on subject matter expertise and while is necessarily a simplification of reality, it aims to capture the essential elements of the sample characteristics that are relevant to the design.
+Data is generated based on subject matter expertise and while is necessarily a simplification of reality, it aims to capture the aspects that are essential to the design.
 The distributional assumptions of each data component follows.
 
 We simulate design variables for region, locality and treatment assignment.
 
-Regional allocation is based on a multinomial distribution with two levels, the probability of residing in Alice set to 0.6.
-Conditional on regional allocation, locality (urban or remote) is based on a multinomial distribution with two levels.
+Regional allocation is based on a multinomial distribution with two levels with the probability of residing in Alice set to 0.6.
+Conditional on regional allocation, locality (urban or remote) is simulated based on a multinomial distribution with two levels.
 The probability of remote status given residence in Alice is set to 0.45 and the probability of remote status given residence in Darwin is set to 0.65.
 The above values were arbitrary.
 
@@ -162,7 +162,7 @@ Within each region/locality combination we allocated treatment status to interve
 Occurrence of medically attended RSV-LRI in the 6 months after randomisation is simulated as a bernoulli random variable with probability formed from a linear risk model.
 While it is possible that participants will have one or more occurrences of medically attended RSV-LRI in the 6 months after randomisation, we adopt the binary perspective of any occurrence versus none.
 
-The participant characteristics and their outcome variable are generated at the start of each interim analysis so that the data on which the analysis is based accrues sequentially.
+The participant characteristics and their outcome variables are generated at the start of each interim analysis so that the data accrues sequentially for the analyses.
 As the trial progresses, decisions may be made which lead to early stopping of treatment arms.
 Given the study has only two arms, early stopping of an arm would lead to the termination of the trial.
 
@@ -170,13 +170,13 @@ To speed up parameter estimation, we aggregate number of successes and number of
 
 # Modelling {#sec-modelling}
 
-While the data are simulated using a linear combination of parameters on the risk scale, the simulation model is specified as a multivariable logistic regression model from which we subsequently transform the parameters back to the risk scale via a g-computation step.
+While the data are simulated using a linear risk model, the simulation model is specified as a multivariable logistic regression model from which we subsequently transform the parameters back to the risk scale via the inverse link and a g-computation step.
 The model form is:
 
 $$
 \begin{aligned}
 y &\sim \text{Binomial}(\pi, n) \\
-\text{logit}(\pi)  &=  \alpha + \beta_{[\text{reg[i]}]} + \gamma_{[\text{loc[i]}]} +  \delta_{[\text{trt[i]}]}  \\
+\text{logit}(\pi)  &=  \alpha + \beta_{[\text{reg}]} + \gamma_{[\text{loc}]} +  \delta_{[\text{trt}]}  \\
 \end{aligned}
 $$
 
@@ -187,7 +187,7 @@ where $y$ is a binomial variable for the number of events out of $n$ trials for 
 +	$\gamma_k$ effect of locality (urban, remote)
 +	$\delta_l$ effect of treatment (soc, intervention)
 
-In practice, the baseline log-odds of RSV-LRI may have differential variation due to locality for each region, but this has been ignored for now and no interactions are included.
+In practice, the log-odds of RSV-LRI may be differential for locality status within each region, but this has been ignored for now and no interactions are included.
 
 # Decision procedures
 
@@ -200,10 +200,10 @@ This approach is simple and offers a transparent interpretation but it ignores t
 
 # Scenarios
 
-Each scenario adopts a maximum sample size of 1000 with interim analyses run after each 400 enrolments have reached their primary endpoint and every 200 thereafter.
-For simplicity, the treatment effects were specified on the log odds scale with treatment effects calibrated to target the domain level treatment effects in terms of risk differences.
+Each scenario adopts a maximum sample size of 1000 with interim analyses run after 400 enrolments have reached their primary endpoint and every 200 thereafter.
+Given the use of a linear risk model, the treatment effects were specified as risk differences.
 
-All scenarios used the covariate distributions and effects. 
+All scenarios used fixed covariate distributions and effects over the duration of the study. 
 Additionally, all simulations used the same reference values and decision thresholds.
 
 ```{r, echo = F, eval = T}
@@ -325,7 +325,7 @@ for(i in 1:length(l)){
 
 ```{r, echo = F}
 #| label: fig-strata-risk
-#| fig-cap: 'Underlying probability of RSV-LRI by strata'
+#| fig-cap: 'Underlying (true) probability of RSV-LRI by strata'
 #| fig-height: 6
 #| fig-width: 6
 #| fig-pos: H
@@ -383,9 +383,7 @@ ggplot(d_fig, aes(x = trt, y = p)) +
 
 ## Probability of triggering decisions
 
-@tbl-cprob-decision provides the cumulative probability of decision types by domain.
-For the Surgical, Extended prophylaxis and Choice domains, the results indicate the cumulative probability of a superiority decision with the probability of futility for the superiority decisions in parentheses.
-For the Antibiotic duration domain, the results indicate the cumulative probability of a non-inferiority decision with the probability of futility for the non-inferiority decisions in parentheses. 
+@tbl-cprob-decision provides the cumulative probability of superiority by scenario with the probability of declaring futility in parentheses.
 
 ```{r, echo = F, eval = T}
 #| label: cum_prob_dec
@@ -488,7 +486,7 @@ g_tbl <- d_tbl_1_cur |>
     pattern = "<<{1}>><< ({2})>>"
   )   |>
   cols_width(
-    starts_with("sup") ~ px(80)
+    starts_with("sup") ~ px(90)
   ) |>
   tab_spanner(
     label = md("Enrolments having reached primary endpoint"),
@@ -574,8 +572,6 @@ ggplot(d_fig_1, aes(x = N, y = pr_val, group = quant, col = quant, lty = quant))
 ### Randomised comparisons
 
 @tbl-n-at-trigger shows the expected number of participants on each treatment for each decision type by scenarios.
-
-todo - double check expectations.
 
 ```{r, echo = F, eval = T}
 #| label: random_cmp_size
@@ -711,7 +707,7 @@ g_tbl
 {{< pagebreak >}}
 ## Parameter estimation
 
-@tbl-post-rd and @fig-expected-rd show the expected value of the posterior means for the treatment effects by domain and interim analyse under each scenario along with the 95% interval of the posterior means.
+@tbl-post-rd and @fig-expected-rd show the expected value of the posterior means (and 95% interval) for the treatment effects by scenario.
 
 ```{r, echo = F, eval = T}
 #| label: post-means
