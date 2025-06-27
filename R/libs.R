@@ -8,6 +8,21 @@ suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("ggrepel"))
 suppressPackageStartupMessages(library("git2r"))
 
+# install.packages(
+#   c(
+#     "config",
+#     "DBI",
+#     "DT",
+#     "RSQLite",
+#     "ggrepel",
+#     "git2r"
+#   ),
+#   Ncpus = 20
+# )
+
+# for devtools:
+# https://forum.posit.co/t/failling-install-devtools-error-onload-failed-in-loadnamespace-for-pkgload/64787
+
 # relies on ‘gt’ version ‘1.0.0.9000’, use 
 # devtools::install_github("rstudio/gt")
 # to install.
@@ -17,7 +32,6 @@ suppressPackageStartupMessages(library("knitr"))
 suppressPackageStartupMessages(library("logger"))
 suppressPackageStartupMessages(library("lubridate"))
 suppressPackageStartupMessages(library("parallel"))
-suppressPackageStartupMessages(library("poisson"))
 suppressPackageStartupMessages(library("pracma"))
 # suppressPackageStartupMessages(library("roadmap.data"))
 # suppressPackageStartupMessages(library("gfonts"))
@@ -41,4 +55,10 @@ suppressPackageStartupMessages(library("tictoc"))
 suppressPackageStartupMessages(library("ggh4x"))
 
 
-
+# install.packages(
+#   c(
+#     "marginaleffects",
+#     "mice"
+#   ),
+#   Ncpus = 20
+# )
