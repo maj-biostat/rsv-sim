@@ -1,6 +1,6 @@
 ---
-title: Simulation Report - RSV
-subtitle: Simulation 01
+title: Bayesian adaptive trial in RSV
+subtitle: Simulation Report
 description: |
     Pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
 date: last-modified
@@ -128,7 +128,7 @@ cannot be bothered to implement it in anything else at the moment).
 
 | Version    |   Date     | Change    |   Reason     |
 |:----|:------------|:----|:------------|
-| 0.1 | 2025-06-25 | First version | N/A |
+| 0.1 | 2025-06-27 | First version | N/A |
 
 
 {{< pagebreak >}}
@@ -147,7 +147,7 @@ We provide the data generation assumptions, modelling approaches, scenarios and 
 
 # Data generation
 
-Data is generated based on subject matter expertise and while is necessarily a simplification of reality, it aims to capture the aspects that are essential to the design.
+Data is generated based on subject matter expertise and while necessarily a simplification of reality, it aims to capture the aspects that are essential to the design.
 The distributional assumptions of each data component follows.
 
 We simulate design variables for region, locality and treatment assignment.
@@ -166,7 +166,7 @@ The participant characteristics and their outcome variables are generated at the
 As the trial progresses, decisions may be made which lead to early stopping of treatment arms.
 Given the study has only two arms, early stopping of an arm would lead to the termination of the trial.
 
-To speed up parameter estimation, we aggregate number of successes and number of trials by covariate group which gives the analogous binomial random variable representation.
+To speed up parameter estimation, we aggregate the number of successes and number of trials by covariate group and this gives the analogous binomial random variable representation.
 
 # Modelling {#sec-modelling}
 
@@ -201,7 +201,7 @@ This approach is simple and offers a transparent interpretation but it ignores t
 # Scenarios
 
 Each scenario adopts a maximum sample size of 1000 with interim analyses run after 400 enrolments have reached their primary endpoint and every 200 thereafter.
-Given the use of a linear risk model, the treatment effects were specified as risk differences.
+Given the use of a linear risk model in the data generation process, the treatment effects were specified as risk differences.
 
 All scenarios used fixed covariate distributions and effects over the duration of the study. 
 Additionally, all simulations used the same reference values and decision thresholds.
@@ -384,6 +384,7 @@ ggplot(d_fig, aes(x = trt, y = p)) +
 ## Probability of triggering decisions
 
 @tbl-cprob-decision provides the cumulative probability of superiority by scenario with the probability of declaring futility in parentheses.
+@fig-cprob-decision gives a visual representation of the same data.
 
 ```{r, echo = F, eval = T}
 #| label: cum_prob_dec
@@ -747,6 +748,9 @@ for(i in 1:length(l)){
   
   # interim looks
   d_N <- data.table(ia = seq_along(l_cfg$N_pt), N = cumsum(l_cfg$N_pt))
+  
+  # observed trial data sets
+  # d_all <- copy(l[[i]]$d_all)
   
   d_pars <- dcast(d_pars, sim + ia ~ par, value.var = c("mu", "se"))
   
