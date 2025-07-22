@@ -1,6 +1,6 @@
 default:
   desc: "Treatment increases chance of RSV-LRI"
-  nsim: 100
+  nsim: 1000
   mc_cores: 40
   # example trials
   nex: 3
@@ -24,8 +24,8 @@ default:
   # intervention
   btrt: [0,   0.01] 
   
-  # priors
-  pri_a: [-2, 0.4] # mean, scale for each par set
+  # priors - remember, these are all for logistic regression
+  pri_a: [-1.8, 0.5] # mean, scale for each par set
   pri_b_reg: [0, 1]
   pri_b_loc: [0, 1]
   pri_b_trt: [0, 1]
