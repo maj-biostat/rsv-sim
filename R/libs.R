@@ -1,8 +1,6 @@
 suppressPackageStartupMessages(library("cmdstanr"))
 suppressPackageStartupMessages(library("config"))
 suppressPackageStartupMessages(library("data.table"))
-suppressPackageStartupMessages(library("DBI"))
-suppressPackageStartupMessages(library("DT"))
 suppressPackageStartupMessages(library("RSQLite"))
 suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("ggrepel"))
@@ -53,6 +51,7 @@ suppressPackageStartupMessages(library("pbapply"))
 suppressPackageStartupMessages(library("poisson"))
 suppressPackageStartupMessages(library("tictoc"))
 suppressPackageStartupMessages(library("ggh4x"))
+suppressPackageStartupMessages(library("patchwork"))
 
 
 # install.packages(
