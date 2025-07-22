@@ -69,7 +69,6 @@ generated quantities{
   real p_2 = w' * mu_2   ;
   
   // start with the marginal effect of treatment
-  real rd = p_2 - p_1;
-  real rr = p_2 * inv(p_1);
+  real rd_2_1 = p_2 - p_1;
   
 }
