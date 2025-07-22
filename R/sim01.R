@@ -1,4 +1,3 @@
-# Experiment with independent set of models with reduced linear predictor.
 
 source("./R/init.R")
 source("./R/data-sim01.R")
@@ -61,9 +60,11 @@ run_trial <- function(
   N_analys <- length(l_spec$N)
   
   # posterior summaries
+  g_par_p = c("p_1", "p_2")
+  g_par_rd = c("rd_2_1")
   d_post_smry_1 <- CJ(
     ia = 1:N_analys,
-    par = c("p0", "p1", "rd", "rr")
+    par = factor(c(g_par_p, g_par_rd))
   )
   d_post_smry_1[, mu := NA_real_]
   d_post_smry_1[, med := NA_real_]
@@ -76,25 +77,14 @@ run_trial <- function(
   # superior, ni, 
   # futile (for superiority - idiotic)
   # futile (for ni - idiotic)
-  g_dec_type <- c("sup", 
-                  "fut"
-  )
+  g_rule_type <- c("sup", "fut")
   
-  # superiority probs
-  pr_dec <- array(
-    NA,
-    # num analysis x num domains x num decision types
-    dim = c(N_analys, length(g_dec_type)),
-    dimnames = list(
-      1:N_analys,  g_dec_type)
-  )
-  
-  decision <- array(
-    NA,
-    # num analysis x num domains x num decision types
-    dim = c(N_analys, length(g_dec_type)),
-    dimnames = list(
-      1:N_analys,  g_dec_type)
+  d_pr_dec <- CJ(
+    ia = 1:N_analys,
+    rule = factor(g_rule_type),
+    par = factor(g_par_rd),
+    p = NA_real_,
+    dec = NA_integer_
   )
   
   # store all simulated trial pt data
@@ -123,10 +113,7 @@ run_trial <- function(
     # id and time
     l_spec$t0 = loc_t0[l_spec$is:l_spec$ie]
     
-    # Our analyses only occur on those that have reached 12 months post 
-    # randomisation. As such, we are assuming that the analysis takes place
-    # 12 months following the last person to be enrolled in the current 
-    # analysis set.
+    # We are assuming that the analysis takes place on pt having reached endpoint
     
     d <- get_sim01_trial_data(l_spec)
     
@@ -149,9 +136,6 @@ run_trial <- function(
       "-sim-", ix, "-intrm-", l_spec$ia)
     
     
-    
-    # fit model - does it matter that I continue to fit the model after the
-    # decision is made...?
     snk <- capture.output(
       f_1 <- m1$sample(
         lsd$ld, iter_warmup = 1000, iter_sampling = 2000,
@@ -169,7 +153,7 @@ run_trial <- function(
     d_post <- data.table(f_1$draws(
       variables = c(
         
-        "p_1", "p_2", "rd", "rr"
+        c(g_par_p, g_par_rd)
         
       ),   
       format = "matrix"))
@@ -181,70 +165,91 @@ run_trial <- function(
       )
     }
     
-    d_post_long <- melt(d_post, measure.vars = names(d_post))
+    d_post_long <- melt(d_post, measure.vars = names(d_post), variable.name = "par")
     
-    d_post_smry_1[ia == l_spec$ia, 
-                  mu := d_post_long[, mean(value), 
-                                    keyby = .(variable)]$V1] 
-    d_post_smry_1[ia == l_spec$ia, 
-                  med := d_post_long[, median(value), 
-                                     keyby = .(variable)]$V1]
-    d_post_smry_1[ia == l_spec$ia, 
-                  se := d_post_long[, sd(value), 
-                                    keyby = .(variable)]$V1]
-    d_post_smry_1[ia == l_spec$ia, 
-                  q_025 := d_post_long[, quantile(value, prob = 0.025), 
-                                       keyby = .(variable)]$V1]
-    d_post_smry_1[ia == l_spec$ia, 
-                  q_975 := d_post_long[, quantile(value, prob = 0.975), 
-                                       keyby = .(variable)]$V1]
+    # sanity check
+    # d_fig <- copy(d_post_long)
+    # d_fig[par %like% "p", par_type := "prob"]
+    # d_fig[par %like% "rd", par_type := "rd"]
+    # d_fig_2 <- d_all[, .(value = mean(y)), keyby = trt]
+    # setnames(d_fig_2, "trt", "par")
+    # p1 <- ggplot(d_fig[par %like% "p", ],
+    #              aes(x = value, group = par, col = par)) +
+    #   geom_vline(
+    #     data = d_all[, .(value = mean(y)), keyby = trt],
+    #     aes(xintercept = value), lwd = 0.3
+    #   ) +
+    #   geom_density()
+    # p2 <- ggplot(d_fig[par %in% c("rd_2_1", "rd_3_1"), ],
+    #              aes(x = value, group = par, col = par)) +
+    #   geom_density()
+    # p1/p2
+    
+    # merge posterior summaries for current interim
+    d_post_smry_1[
+      d_post_long[, .(ia = l_spec$ia,
+                      mu = mean(value),
+                      med = median(value),
+                      se = sd(value),
+                      q_025 = quantile(value, prob = 0.025),
+                      q_975 = quantile(value, prob = 0.975)
+      ), keyby = par], 
+      on = .(ia, par), `:=`(
+        mu = i.mu,
+        med = i.med,
+        se = i.se,
+        q_025 = i.q_025,
+        q_975 = i.q_975
+      )]
     
     log_info("Trial ", ix, " extracted posterior ", l_spec$ia)
     
-    # superiority is implied by a high probability that the risk diff 
-    # greater than zero
-    pr_dec[l_spec$ia, "sup"]  <-   d_post[, mean(rd < l_spec$delta$sup)]
-    # futility for the superiority decision is implied by a low probability 
-    # that the risk diff is greater than some small value (2% difference)
-    pr_dec[l_spec$ia, "fut"]  <-   d_post[, mean(rd < l_spec$delta$fut)]
+    # compute and merge the current probability and decision trigger status
     
-    log_info("Trial ", ix, " calculated decision quantities ", l_spec$ia)
+    # The trial setup is such that if the intervention were beneficial, it would 
+    # reduce the occurrence of medically attended LRIs.
+    # Therefore, when we compare a beneficial treatment with the soc, the central
+    # value of the posterior would be negative and ideally the whole posterior
+    # would be below zero.
+  
+    d_pr_dec[
+      
+      rbind(
+        
+        # superiority decision is implied by a high probability 
+        # that the risk diff is below zero e.g. Pr(RD < 0) is high
+        
+        d_post_long[par %in% g_par_rd, .(
+          ia = l_spec$ia,
+          rule = factor("sup", levels = g_rule_type),
+          p = mean(value < l_spec$delta$sup),
+          dec = as.integer(mean(value < l_spec$delta$sup) > l_spec$thresh$sup)
+        ), keyby = par],
+        
+        # futility for the superiority decision is implied by a low probability 
+        # that the risk diff is lower than some small value 
+        # e.g. Pr(RD < -0.02) is low
+        
+        d_post_long[par %in% g_par_rd, .(
+          ia = l_spec$ia,
+          rule = factor("fut", levels = g_rule_type),
+          p = mean(value < l_spec$delta$fut),
+          dec = as.integer(mean(value < l_spec$delta$fut) < l_spec$thresh$fut)
+        ), keyby = par]
+      ),
+      
+      on = .(ia, rule, par), `:=`(
+        p = i.p, dec = i.dec  
+      )
+    ]
     
-    decision[l_spec$ia, "sup"] <- pr_dec[l_spec$ia, "sup"] > l_spec$thresh$sup
-    decision[l_spec$ia, "fut"] <- pr_dec[l_spec$ia, "fut"] < l_spec$thresh$fut
-    
-    log_info("Trial ", ix, " compared to thresholds ", l_spec$ia)
-    
-    # Earlier decisions are retained - once superiority has been decided, 
-    # we retain this conclusion irrespective of subsequent post probabilities.
-    # The following simply overwrites any decision reversal.
-    # This means that there could be inconsistency with a silo pr_sup and the 
-    # decision reported.
-    decision[1:l_spec$ia, "sup"] <- apply(decision[1:l_spec$ia, "sup", drop = F], 2, function(z){ cumsum(z) > 0 })
-    decision[1:l_spec$ia, "fut"] <- apply(decision[1:l_spec$ia, "fut", drop = F], 2, function(z){ cumsum(z) > 0 })
-    
-    # # superiority decisions apply to domains 1, 3 and 4
-    # if(any(decision[l_spec$ia, "sup"])){
-    #   # since there are only two treatments per cell, if a superiority decision 
-    #   # is made then we have answered all the questions and we can stop 
-    #   # enrolling into that cell. if there were more than two treatments then
-    #   # we would need to take a different approach.
-    #   
-    #   dec_sup <- T
-    #   
-    #   
-    # }
-    # # stop enrolling if futile wrt superiority decision
-    # if(any(decision[l_spec$ia,  "fut"])){
-    #   dec_fut <- T
-    # }
     
     # have we answered all questions of interest?
-    if(
-      # if rev (in late acute silo) is superior to dair (or superiority decision
-      # decision is futile to pursue)
-      (decision[l_spec$ia, "sup"] | decision[l_spec$ia, "fut"]) 
-    ){
+    d_stop <- d_pr_dec[
+      ia <= l_spec$ia & par %in% c("rd_2_1"), 
+      .(resolved = as.integer(sum(dec) > 0)), keyby = .(par)]
+    
+    if(d_stop[par == "rd_2_1", resolved]) {
       log_info("Stop trial all questions addressed ", ix)
       stop_enrol <- T  
     } 
@@ -260,20 +265,7 @@ run_trial <- function(
   }
   
   # did we stop (for any reason) prior to the final interim?
-  stop_at <- N_analys
-  
-  # any na's in __any__ of the decision array rows means we stopped early:
-  # we can just use sup to test this:
-  if(any(is.na(decision[, "sup"]))){
-    # interim where the stopping rule was met
-    stop_at <- min(which(is.na(decision[, "sup"]))) - 1
-    
-    if(stop_at < N_analys){
-      log_info("Stopped at analysis ", stop_at, " filling all subsequent entries")
-      decision[(stop_at+1):N_analys, "sup"] <- decision[rep(stop_at, N_analys-stop_at), "sup"]
-      decision[(stop_at+1):N_analys, "fut"] <- decision[rep(stop_at, N_analys-stop_at), "fut"]
-    }
-  }
+  stop_at <- l_spec$ia - 1
   
   l_ret <- list(
     # data collected in the trial
@@ -281,8 +273,7 @@ run_trial <- function(
     
     d_post_smry_1 = d_post_smry_1,
     
-    pr_dec = pr_dec,
-    decision = decision,
+    d_pr_dec = d_pr_dec,
     
     stop_at = stop_at
   )
@@ -354,7 +345,7 @@ run_sim01 <- function(){
   log_info("Start simulation")
   r <- pbapply::pblapply(
     X=1:g_cfgsc$nsim, cl = g_cfgsc$mc_cores, FUN=function(ix) {
-      # X=1:5, mc.cores = g_cfgsc$mc_cores, FUN=function(ix) {
+      # X=1:5, cl = g_cfgsc$mc_cores, FUN=function(ix) {
       log_info("Simulation ", ix);
       
       if(ix %in% l_spec$ex_trial_ix){
@@ -407,9 +398,9 @@ run_sim01 <- function(){
       d_pr_dec <- rbind(
         d_pr_dec,
         cbind(
-          sim = i, ia = as.integer(rownames(r[[i]]$pr_dec)), r[[i]]$pr_dec
+          sim = i, r[[i]]$d_pr_dec
         ) 
-      )  
+      )   
     } else {
       log_info("Value for r at this index is not recursive ", i)
       message("r[[i]] ", r[[i]])
@@ -419,25 +410,6 @@ run_sim01 <- function(){
     
   }
   
-  # decisions based on probability thresholds
-  d_decision <- rbind(
-    
-    data.table(do.call(rbind, lapply(1:length(r), function(i){ 
-      m <- r[[i]]$decision[, "sup"]
-      cbind(sim = i, ia = 1:length(m), quant = "sup", value = m) 
-    } ))), 
-    
-    data.table(do.call(rbind, lapply(1:length(r), function(i){ 
-      m <- r[[i]]$decision[, "fut"]
-      cbind(sim = i, ia = 1:length(m), quant = "fut", value = m) 
-    } )))
-    
-  )
-  
-  d_decision[, `:=`(sim = as.integer(sim), 
-                    ia = as.integer(ia),
-                    value = as.logical(value)
-  )]
   
   d_post_smry_1 <- rbindlist(lapply(1:length(r), function(i){ 
     r[[i]]$d_post_smry_1
@@ -463,11 +435,8 @@ run_sim01 <- function(){
   l <- list(
     cfg = g_cfgsc,
     
-    
-    
     d_pr_dec = d_pr_dec, 
     
-    d_decision = d_decision,
     d_post_smry_1 = d_post_smry_1,
     
     d_all = d_all,
