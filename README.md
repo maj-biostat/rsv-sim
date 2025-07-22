@@ -8,3 +8,12 @@ The simulations use `just`, see https://github.com/casey/just for automation.
 Use `just -l` to list targets then `just sim01 [cfgfilename]` to run using simulation design 01.
 
 
+## todo
+
+convert output to word doc
+
+use simplified tables
+determine how to deal with ggplot output scaling
+
+incorporating timing and summarise duration of trial
+
