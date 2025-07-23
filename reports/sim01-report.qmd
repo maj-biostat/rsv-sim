@@ -178,10 +178,13 @@ Conditional on regional allocation, locality (urban or remote) is simulated base
 The probability of remote status given residence in Alice is set to 0.45 and the probability of remote status given residence in Darwin is set to 0.65.
 These values were selected arbitrarily.
 
-Within each region/locality combination we allocated intervention vs soc with a 1:1 ratio.
+Within each region/locality combination intervention vs soc is allocated 1:1.
 
 Occurrence of medically attended RSV-LRI in the 6 months after randomisation is simulated as a bernoulli random variable for each participant with probability computed from a linear risk model.
 While it is possible that participants will have one or more occurrences of medically attended RSV-LRI in the 6 months after randomisation, the outcome variable simply reflects any occurrence versus none.
+
+No interactions are considered in any aspect of the data generating process.
+For example, in practice, there may be different distributions for the probability of RSV-LRI based on locality status within each region, i.e. the shift in the probability of RSV-LRI associated with remote vs urban may be different for Alice and Darwin, but this has been ignored for now and no interactions are included in the data generation nor model.
 
 The participant characteristics and their outcome variables are generated at the start of each interim analysis so that the data accrues sequentially for the analyses.
 As the trial progresses, decisions may be made which lead to early stopping of treatment arms.
@@ -208,7 +211,7 @@ where $y$ is a binomial variable for the number of events out of $n$ trials for 
 +	$\gamma_k$ effect of locality (urban, remote)
 +	$\delta_l$ effect of treatment (soc, intervention)
 
-In practice, there may be different distributions for the log-odds of RSV-LRI based on locality status within each region, i.e. the shift in the log-odds of RSV-LRI associated with remote vs urban may be different for Alice and Darwin, but this has been ignored for now and no interactions are included in the data generation nor model.
+No interactions are considered.
 
 The model uses priors:
 
@@ -218,7 +221,19 @@ The model uses priors:
 + $\delta_l \sim \text{Normal}(0, 1)$
 
 all of which are on the log-odds or log-odds ratio scale.
+
+```{r}
+#| echo: false
+
+d_fig <- data.table(
+  x = rlogis(1e6, -1.8, 0.5)
+)
+
+qq <- quantile(plogis(d_fig$x), prob = c(0.05, 0.95))
+```
+
 Transformed to the probability scale, the intercept prior is shown in @fig-prior-intercept and reflects the prior probability of medically attended RSV-LRI in the 6 months after randomisation in the reference covariate groups.
+The prior has 90% of the density between `r sprintf("%.2f", qq[1])` and `r sprintf("%.2f", qq[2])`.
 
 ```{r, echo = F, eval = T}
 #| label: fig-prior-intercept
@@ -227,9 +242,7 @@ Transformed to the probability scale, the intercept prior is shown in @fig-prior
 #| fig-width: 4
 #| fig-pos: H
 
-d_fig <- data.table(
-  x = rlogis(1e6, -1.8, 0.5)
-)
+
 
 ggplot(d_fig, aes(x = plogis(x))) +
   geom_density() +
