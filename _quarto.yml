@@ -4,6 +4,7 @@ project:
   render: 
     - "*.qmd"
     - "!reports/sim01-report.qmd"
+    - "!reports/sim01-pres1.qmd"
 
 website:
   title: "RSV Trial - design notes and simulations"
