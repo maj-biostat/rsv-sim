@@ -1,10 +1,14 @@
 default:
   desc: "Treatment reduces chance of RSV-LRI"
-  nsim: 5000
+  nsim: 1000
   mc_cores: 40
   # example trials
   nex: 3
-  N_pt: [400, 200, 200, 200]
+  N_pt: [600, 200, 200]
+  # accrual per day (about 240 per year)
+  recruit_rate: 0.658
+  # days fu to endpoint
+  fu_days: 365
   # 60% in alice = 1, darwin = 2
   reg_alloc: 0.60
   # 45% remote = 2, urban = 1 for alice 
@@ -25,7 +29,7 @@ default:
   btrt: [0,   -0.025] 
   
   # priors - beta-binomial uniform prior
-  pri_p: [1, 1] 
+  pri_p: [1.9, 9] 
   
   # decision reference values
   dec_delta_sup: 0
