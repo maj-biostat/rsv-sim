@@ -495,7 +495,7 @@ gt_tbl <- gt(d_tbl[, .SD, .SDcols = !c("id")],
   ) |>
   cols_label(
     desc = "Scenario",
-    rd_trt = "",
+    rd_trt = "Effect size (risk diff)",
     fu_mu = "Adaptive",
     fu_0 = "Fixed"
   ) |>
@@ -636,7 +636,7 @@ g_tbl <- d_tbl_1_cur |>
     align = "center"
   )  |>
   cols_label(
-    rd_trt = "",
+    rd_trt = "Effect size (risk diff)",
     decision = "Decision",
     pct = "Proportion of trials",
     ty = "Expected years to last followup",
