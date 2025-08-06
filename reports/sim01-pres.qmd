@@ -1,0 +1,771 @@
+---
+title: "THRIVE"
+author: "Mark Jones"
+date: 2025-08-04
+format: 
+  revealjs:
+    theme: [default, custom.scss]
+    slide-number: true
+    incremental: false
+    toc: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| echo: false
+
+# uml digs
+suppressPackageStartupMessages(library(nomnoml))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(qs))
+suppressPackageStartupMessages(library(git2r))
+suppressPackageStartupMessages(suppressWarnings(library(gt)))
+suppressPackageStartupMessages(library(ggh4x))
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(scales))
+suppressPackageStartupMessages(library(katex))
+
+toks <- unlist(tstrsplit(getwd(), "/")) 
+if(toks[length(toks)] == "rsv-sim"){
+  prefix_cfg <- "./etc/sim01/"
+  prefix_stan <- "./stan"
+  prefix_fig <- "./fig"
+  prefix_data <- "./data"
+} else {
+  prefix_cfg <- "../etc/sim01/"
+  prefix_stan <- "../stan"
+  prefix_fig <- "../fig"
+  prefix_data <- "../data"
+}
+
+
+# Reference design
+
+sim_lab <- "sim00-02"
+
+flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim00")
+toks <- list()
+l0 <- list()
+i <- 1
+
+for(i in 1:length(flist)){
+
+  l0[[i]] <- qs::qread(file.path(paste0(prefix_data, "/", sim_lab), flist[i]))
+}
+
+
+# Each input file corresponds to the results from a single simulation
+# scenario/configuration.
+# Load all the files into a single list.
+
+# files of interest
+sim_lab <- "sim01-02"
+
+flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim01")
+toks <- list()
+l <- list()
+i <- 1
+
+for(i in 1:length(flist)){
+
+  l[[i]] <- qs::qread(file.path(paste0(prefix_data, "/", sim_lab), flist[i]))
+  toks[[i]] <-  unlist(tstrsplit(flist[i], "[-.]"))
+}
+
+N_sims <- l[[1]]$cfg$nsim
+```
+
+## Overview
+
+Adaptive trial of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
+
+## Estimand
+
+```{r}
+#| echo: false
+#| output: true
+#| code-overflow: wrap
+
+library(data.table)
+library(gt)
+
+d_tbl <- data.table(
+  attr = c(
+    "Population", "Treatment conditions", "Endpoint", "Summary measure", "Handling intercurrent events"
+  ),
+  spec = c(
+    "All First Nations infants 6 months (+90 days), including infants who received passive antibody protection from maternal RSV vaccination, infants who received first dose nirsevimab at birth, infants who received both maternal RSV vaccine protection and nirsevimab, and infants who received neither",
+    "Intervention group: Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg). Control: standard care (please define).",
+    "Medically attended RSV-LRI: any notification of laboratory-confirmed RSV infection to the NT Notifiable Disease System from time of randomisation to 6-months or 12-months (TBD) post randomisation date.",
+    "Risk difference between treatment groups",
+    "Treatment policy"
+  )
+)
+setnames(d_tbl, c("Estimand Component", "Specification"))
+
+gt(d_tbl)
+
+```
+
+
+## Design
+
+
+- 2-arm adaptive trial
+- adaptation is early stopping
+- interim analyses after 600, 800, 1000 reach 12-month FU
+- 1:1 rand within design strata
+
+. . .
+
+- sims assume 12-month endpoint
+- need to include stratification based on infant baseline vax
+
+## Probability model
+
+- Logistic regresssion (weakly informative priors)
+- Parameters transformed to risk differences
+
+$$
+\begin{aligned}
+y &\sim \text{Binomial}(p, n) \\
+\text{logit}(p) &= \alpha + \beta_{[\text{reg}]} + \beta_{[\text{loc}]} + \beta_{[\text{trt}]}
+\end{aligned}
+$$
+
+
+## Decision procedures
+
+- Superiority - more than 0.975 of the posterior density for the RD(trt) above 0
+- Futility (lack of efficacy) - less than 0.2 of the posterior density for the RD(trt) below -0.02
+
+```{r}
+#| echo: false
+
+d_dec_pars <- data.table(
+  desc = c("Superiority", "Futility"),
+  ref_value = c(0, -0.02),
+  threshold = c(0.975, 0.2),
+  form = c(
+    "$\\text{Pr}(RD < \\epsilon) > \\zeta$",
+    "$\\text{Pr}(RD < \\epsilon) < \\zeta$"
+  )
+)
+
+
+gt_tbl <- gt(d_dec_pars) |>
+  cols_align(
+    columns = 1,
+    align = "left"
+  ) |>
+  fmt_markdown(column = form) |>
+  cols_align(
+    columns = 2:3,
+    align = "center"
+  )  |>
+  cols_label(
+    desc = "Decision type",
+    ref_value = md("Reference value ($\\epsilon$)"),
+    threshold = md("Threshold ($\\zeta$)"), 
+    form = "Formula"
+  ) 
+
+gt_tbl
+```
+
+## Simulated scenarios
+
+```{r}
+#| echo: false
+ 
+i <- 1
+d_scenarios <- data.table()
+
+# For each scenario that was simulated
+for(i in 1:length(l)){
+  l_cfg <- copy(l[[i]]$cfg)
+  
+  btrt <- l_cfg$btrt
+  p_y_marg_ctl <- l_cfg$p_y_ctl
+  
+  d_scenarios <- rbind(
+    d_scenarios,
+    data.table(
+      id = i,
+      desc = l_cfg$desc,
+      p_0 = p_y_marg_ctl,
+      rd = btrt[2] - btrt[1]
+    )
+  )
+}
+
+gt_tbl <- gt(d_scenarios[, .SD, .SDcols = !c("id")]) |>
+  cols_width(
+    desc ~ pct(50),
+    p_0 ~ pct(25),
+    rd ~ pct(25)
+  ) |>
+  cols_align(
+    columns = 1,
+    align = "left"
+  ) |>
+  cols_align(
+    columns = 2:3,
+    align = "center"
+  )  |>
+  cols_label(
+    desc = "Scenario",
+    p_0 = "Marginal baseline risk",
+    rd = "Effect of treatment (risk difference)"
+  )
+
+gt_tbl 
+```
+
+
+## Simulation results
+
+## Decision rates $\text{Pr}(decision = x | data)$
+
+Percentage of simulated trials where superiority (futility) was declared in adaptive and fixed design.
+
+```{r}
+#| echo: false
+
+
+# Cumulative probability of decisions:
+
+# Traverse the list of simulation results and for each one summarise the 
+# cumulative probability of each decision type.
+
+i <- 1
+d_cprob_dec <- data.table()
+
+# For each scenario that was simulated
+for(i in 1:length(l)){
+  
+  # extract the decision matrix - sim, analysis, quantity, domain level decision
+  d_dec_1 <- copy(l[[i]]$d_pr_dec[par %in% c("rd_2_1")])
+  # config for scenario
+  l_cfg <- copy(l[[i]]$cfg)
+  
+  # number of enrolments at each interim (interim sample size sequence)
+  d_N <- data.table(ia = seq_along(l_cfg$N), N = cumsum(l_cfg$N))
+  
+  
+  
+  
+  # compute the cumulative instances of a decision being made by sim, each 
+  # decision type and by parameter
+  d_dec_1[, cdec := as.integer(cumsum(dec)>0), keyby = .(sim, rule)]
+  d_dec_1[, cdec := nafill(cdec, type = "locf"), keyby = .(sim, rule)]
+  d_dec_1[, cdec := as.logical(cdec)]
+  
+  d_dec_1 <- merge(d_dec_1, d_N, by = "ia")
+  # cumulative proportion for which each decision quantity has been met by 
+  # analysis and domain
+  d_dec_cumprob <- d_dec_1[, .(pr_val = mean(cdec)), keyby = .(ia, N, rule)]
+  
+  b_trt <- unlist(l_cfg$btrt)
+  d_cprob_dec <- rbind(
+    d_cprob_dec,
+    cbind(scenario = i, desc = l_cfg$desc, rd_trt = b_trt[2] - b_trt[1], d_dec_cumprob)
+  )
+
+}
+
+
+i <- 1
+d_cprob_dec_ref <- data.table()
+
+# For each scenario that was simulated
+for(i in 1:length(l)){
+  
+  # extract the decision matrix - sim, analysis, quantity, domain level decision
+  d_dec_1 <- copy(l0[[i]]$d_pr_dec[par %in% c("rd_2_1")])
+  # config for scenario
+  l0_cfg <- copy(l0[[i]]$cfg)
+  
+  d_dec_1[, N := sum(l0_cfg$N_pt)]
+  
+  # cumulative proportion for which each decision quantity has been met by 
+  # analysis and domain
+  d_dec_1 <- d_dec_1[, .(pr_val = mean(dec)), keyby = .(N, rule, par)]
+  
+  d_cprob_dec_ref <- rbind(
+    d_cprob_dec_ref,
+    cbind(scenario = i, desc = l0_cfg$desc, d_dec_1)
+  )
+
+}
+
+
+d_cprob_dec[, pr_val := 100 * pr_val]
+d_tbl_1_cur <- copy(d_cprob_dec)
+
+d_tbl_1_cur <- dcast(
+  d_tbl_1_cur, scenario + desc + rd_trt ~ rule + N, value.var = "pr_val")
+
+setcolorder(d_tbl_1_cur, c("scenario", "desc", "rd_trt"))
+setorderv(d_tbl_1_cur, cols = c("scenario"))
+
+d_cprob_dec_ref[, pr_val := 100 * pr_val]
+d_tbl_2_cur <- copy(d_cprob_dec_ref)
+d_tbl_2_cur <- dcast(
+  d_tbl_2_cur, scenario + desc ~ rule + N, value.var = "pr_val")
+
+setnames(d_tbl_2_cur, "fut_1000", "ref_fut_1000")
+setnames(d_tbl_2_cur, "sup_1000", "ref_sup_1000")
+
+d_tbl_1_cur <- merge(d_tbl_1_cur, d_tbl_2_cur, by = c(
+  "scenario", "desc"
+))
+
+d_tbl_1_cur <- d_tbl_1_cur[, .SD, .SDcols = !c("scenario")]
+
+
+
+g_tbl <- d_tbl_1_cur |> 
+  gt(groupname_col = "desc") |> 
+  gt::text_transform(
+    locations = cells_row_groups(),
+    fn = function(x) {
+      lapply(x, function(x) {
+        gt::md(paste0("*", x, "*"))
+      })
+    }
+  ) |>
+  cols_align(
+    columns = 1:2,
+    align = "left"
+  )  |> 
+  cols_align(
+    columns = 3:ncol(d_tbl_1_cur),
+    align = "center"
+  )  |> 
+  cols_merge(
+    columns = c("sup_600", "fut_600"
+                ),
+    pattern = "<<{1}>><< ({2})>>"
+  ) |> 
+  cols_merge(
+    columns = c("sup_800", "fut_800"
+                ),
+    pattern = "<<{1}>><< ({2})>>"
+  )  |> 
+  cols_merge(
+    columns = c("sup_1000", "fut_1000"
+                ),
+    pattern = "<<{1}>><< ({2})>>"
+  )   |> 
+  cols_merge(
+    columns = c("ref_sup_1000", "ref_fut_1000"
+                ),
+    pattern = "<<{1}>><< ({2})>>"
+  )   |>
+  cols_width(
+    starts_with("sup") ~ px(90)
+  ) |>
+  tab_spanner(
+    label = md("Enrolments having reached primary endpoint"),
+    columns = 3:ncol(d_tbl_1_cur)
+  )  |>
+  cols_label(
+    rd_trt = "Effect size (risk diff)",
+    sup_600 = html("600"),
+    sup_800 = html("800"),
+    sup_1000 = html("1000"),
+    ref_sup_1000 = html("Fixed design")
+  ) |>
+  tab_options(
+    table.font.size = pct(45)
+  ) |>
+  fmt_number(
+    columns = c(starts_with("sup"), starts_with("ref_")),
+    decimals = 2, drop_trailing_zeros = TRUE)
+
+g_tbl
+```
+
+
+
+## Trial duration $\mathbb{E}[\text{trial duration}]$
+
+
+```{r}
+#| echo: false
+
+# 
+
+i <- 1
+d_fu0 <- data.table()
+d_fu <- data.table()
+
+for(i in 1:length(l)){
+  
+  # observed trial data sets - duration of fixed design
+  d_all <- copy(l0[[i]]$d_all)
+  # config for scenario
+  l0_cfg <- copy(l0[[i]]$cfg)
+  
+  d_fu0 <- rbind(
+    d_fu0, 
+    data.table(
+      id = i, desc = l0_cfg$desc, fu_0 = mean(d_all$ty/365)
+    ))
+  
+  d_all <- copy(l[[i]]$d_all)
+  
+  # pick  out the last interim by sim and then compute the average across the
+  # region and locality strata
+  d_last <- d_all[d_all[, .I[ia == max(ia)], by = sim]$V1, .(ty = mean(ty/365)), keyby = sim]
+  
+  
+  # config for scenario
+  l_cfg <- copy(l[[i]]$cfg)
+  
+  d_fu <- rbind(
+    d_fu, 
+    data.table(
+      id = i, desc = l_cfg$desc, 
+      rd_trt = l_cfg$btrt[2] - l_cfg$btrt[1],
+      fu_mu = mean(d_last$ty), fu_sd = sd(d_last$ty)
+    ))
+  
+}
+
+d_fu <- merge(
+  d_fu, d_fu0, by = c("id", "desc")
+)
+
+
+
+d_tbl <- copy(d_fu)
+
+# d_tbl[, desc := paste0(desc, " (RD = ", rd_trt, ")")]
+# d_tbl[, desc := factor(desc, levels = unique(d_tbl$desc))]
+
+gt_tbl <- gt(d_tbl[, .SD, .SDcols = !c("id")], 
+             groupname_col = "desc") |>
+  cols_merge(
+    columns = c("fu_mu", "fu_sd"),
+    pattern = "<<{1}>><< ({2})>>"
+  ) |>
+  fmt_number(
+    columns = c("fu_mu", "fu_sd", "fu_0"),
+    decimals = 2, drop_trailing_zeros = TRUE)  |>
+  cols_align(
+    columns = c("rd_trt"),
+    align = "left"
+  ) |>
+  tab_spanner(
+    label = md("Years for final enrolment to reach 12 months followup"),
+    columns = c("fu_mu", "fu_sd", "fu_0")
+    )|>
+  cols_align(
+    columns = c("fu_mu"),
+    align = "center"
+  ) |>
+  cols_align(
+    columns = c("fu_0"),
+    align = "center"
+  ) |>
+  cols_width(
+    starts_with("rd_trt") ~ pct(30),
+    starts_with("fu_mu") ~ pct(30),
+    starts_with("fu_0") ~ pct(20)
+  ) |>
+  cols_label(
+    desc = "Scenario",
+    rd_trt = "",
+    fu_mu = "Adaptive",
+    fu_0 = "Fixed"
+  ) |>
+  tab_options(
+    table.font.size = pct(45)) 
+
+gt_tbl 
+```
+
+## Sample size $\mathbb{E}[N]$
+
+```{r}
+#| echo: false
+
+# 
+
+i <- 1
+d_N_by_rand <- data.table()
+
+for(i in 1:length(l)){
+  
+  # extract the decision matrix - sim, analysis, quantity, domain level decision
+  d_dec_1 <- copy(l[[i]]$d_pr_dec)
+  # config for scenario
+  l_cfg <- copy(l[[i]]$cfg)
+  
+  b_trt <- unlist(l_cfg$btrt)
+  rd_trt <- b_trt[2] - b_trt[1]
+  # interim looks
+  d_enrolment <- data.table(
+    ia = seq_along(l_cfg$N), 
+    N_enrol = cumsum(l_cfg$N))
+  # observed trial data sets
+  d_all <- copy(l[[i]]$d_all)
+  
+  # collapse the number of trials in each strata by sim, interim and trt arm
+  d_n_trt <- d_all[, .(N = sum(N)), keyby = .(sim, ia)]
+  # obtain the cumulative sum of trials by sim and trt over interims
+  d_n_trt[, N := cumsum(N), keyby = .(sim)]
+  
+  # max duration across strata by sim, interim 
+  d_dur <- d_all[, .(ty = max(ty/365)), keyby = .(sim, ia)]
+  
+  # identify the first decision triggered by simulation
+  d_trt_dec <- base::merge(
+    d_dec_1[rule == "sup", .(sim, ia, sup = dec)],
+    d_dec_1[rule == "fut", .(sim, ia, fut = dec)],
+    by = c("sim", "ia")
+  )
+  d_trt_dec[sup == T & fut == F, decision := "sup"]
+  d_trt_dec[sup == F & fut == T, decision := "fut"]
+  # those with a decision, irrespective of sup/fut
+  d_trt_dec_a <- d_trt_dec[
+    decision %in% c("sup", "fut"), .SD[1], keyby = .(sim)][
+    , .(sim, ia, decision)
+  ]
+  # those trials without a decision (which will run to the max sample size)
+  d_trt_dec_b <- d_trt_dec[
+    !(sim %in% d_trt_dec_a$sim), .SD[.N], keyby = .(sim)][
+    , .(sim, ia, decision = "-")
+  ]
+  d_trt_dec <- rbind(d_trt_dec_a, d_trt_dec_b)[order(sim, ia)]
+  
+  # merge decision in with the total sample size by arm for the randomised 
+  # comparison when the decision was made
+  d_trt_dec <- base::merge(d_n_trt, d_trt_dec, by = c("sim", "ia"))
+  
+  d_trt_dec <- base::merge(d_trt_dec, d_dur, by = c("sim", "ia"))
+  setkey(d_trt_dec, sim, ia)
+  
+  
+  d_trt_dec[, `:=`(
+    scenario = i, desc = l_cfg$desc, rd_trt = rd_trt
+  )]
+  
+  d_N_by_rand <- rbind(d_N_by_rand, d_trt_dec)
+
+}
+
+
+d_tbl_1_cur <- d_N_by_rand[
+  , .(N_mu = mean(N), pct = .N/N_sims, ty = mean(ty)), 
+  keyby = .(scenario, desc, decision, rd_trt)]
+
+
+d_tbl_1_cur[, desc := sprintf("%s (RD = %.3f)", desc, rd_trt)]
+
+d_tbl_1_cur <- dcast(
+  d_tbl_1_cur, 
+  scenario + desc + decision + pct + ty ~ . , 
+  value.var = list("N_mu"))
+
+d_tbl_1_cur[, decision := factor(
+  decision, 
+  levels = c("sup", "fut", "-"),
+  labels = c("superiority", "futility", "no decision"))]
+
+d_tbl_1_cur <- d_tbl_1_cur[order(scenario, decision)]
+d_tbl_1_cur <- d_tbl_1_cur[, .SD, .SDcols = !c("scenario")]
+
+setnames(d_tbl_1_cur, ".", "N")
+
+# setnames(d_tbl_1_cur, old = paste0(1:2), new = paste0("N_", 1:2))
+
+g_tbl <- d_tbl_1_cur |> 
+  gt(groupname_col = "desc")  |> 
+  gt::text_transform(
+    locations = cells_row_groups(),
+    fn = function(x) {
+      lapply(x, function(x) {
+        gt::md(paste0("*", x, "*"))
+      })
+    }
+  ) |>
+  fmt_number(
+    columns = c("N"),
+    decimals = 0, drop_trailing_zeros = TRUE) |>
+  fmt_number(
+    columns = c("pct"),
+    decimals = 2, drop_trailing_zeros = TRUE) |> 
+  fmt_number(
+    columns = c("ty"),
+    decimals = 2, drop_trailing_zeros = TRUE) |> 
+  cols_width(
+    starts_with("decision") ~ pct(20),
+    starts_with("pct") ~ pct(20),
+    starts_with("ty") ~ pct(20),
+    starts_with("N") ~ pct(20)
+  ) |>
+  cols_align(
+    columns = c("decision"),
+    align = "left"
+  ) |>
+  cols_align(
+    columns = c("pct", "ty"),
+    align = "center"
+  )  |>
+  cols_label(
+    decision = "Decision",
+    pct = "Proportion of trials",
+    ty = "Expected years to last followup",
+    N = "N"
+  ) |>
+  tab_options(
+    table.font.size = pct(25)
+  ) 
+
+g_tbl
+```
+
+## Parameter estimates $\mathbb{E}[\beta]$
+
+Distribution of posterior means:
+
+```{r}
+#| echo: false
+
+# Distribution of posterior means for parameters of interest.
+
+# Some simulated trials will have stopped prior to the maximum sample size and
+# these will have NA for their posterior means. If you were to summarise these 
+# posterior means, they would be conditional on the trial having 'survived' 
+# until the relevant interim. This means that you have missing data at later 
+# interims, which creates a selection bias in that your selection of sims at any
+# given interim are not a random sample, but rather a sample conditioned on the 
+# stopping rules. 
+
+# If you do not account for this in some way then a summary can be either 
+# optimistic or pessimistic depending on how the stopping rules interact 
+# with the data. Here we try to account for this missingness by imputing the 
+# missing posterior means with locf within each simulation.
+# Note that this is really only a partial 'fix' to get a sense of whether 
+# our estimates is representative of the parameter values we used to simulate
+# the data.
+
+i <- 1
+d_post_1 <- data.table()
+
+for(i in 1:length(l)){
+  
+  # config for scenario
+  l_cfg <- copy(l[[i]]$cfg)
+  
+  b_trt <- unlist(l_cfg$btrt)
+  rd_trt <- b_trt[2] - b_trt[1]
+  # params
+  d_pars <- copy(l[[i]]$d_post_smry_1)
+  d_pars <- d_pars[par %like% c("rd")]
+  
+  # interim looks
+  d_N <- data.table(ia = seq_along(l_cfg$N), N = cumsum(l_cfg$N))
+  
+  # observed trial data sets
+  # d_all <- copy(l[[i]]$d_all)
+  
+  d_pars <- dcast(d_pars, sim + ia ~ par, value.var = c("mu", "se"))
+  
+  # locf
+  d_pars[, `:=`(
+    mu_rd_2_1 = nafill(mu_rd_2_1, type = "locf"),
+    se_rd_2_1 = nafill(se_rd_2_1, type = "locf")
+                ), 
+         keyby = .(sim)]
+  #
+  
+  d_pars <- base::merge(d_pars, d_N, by = "ia")
+  
+  d_post_1 <- rbind(
+    d_post_1,
+    cbind(
+      scenario = i, desc = l_cfg$desc,
+      rd_trt = rd_trt,
+      d_pars[, .(ia, sim, N, mu_rd_2_1, se_rd_2_1)]
+      )
+  )
+
+}
+
+
+
+
+
+i <- 1
+d_post_1_ref <- data.table()
+
+for(i in 1:length(l)){
+  
+  # config for scenario
+  l0_cfg <- copy(l0[[i]]$cfg)
+  
+  b_trt <- unlist(l0_cfg$btrt)
+  
+  # params
+  d_pars <- copy(l0[[i]]$d_post_smry_1)
+  d_pars <- d_pars[par %in% c("rd_2_1"), .(sim, par, mu)]
+  
+  d_pars[, N:= sum(l0_cfg$N_pt)]
+  
+  
+  d_post_1_ref <- rbind(
+    d_post_1_ref,
+    cbind(
+      scenario = i, desc = l0_cfg$desc, 
+      d_pars
+      )
+  )
+
+}
+
+d_fig <- copy(d_post_1)
+d_fig[, desc := factor(desc, levels = unique(d_fig$desc))]
+
+d_fig[, lab := paste0(desc, " (", rd_trt, ")")]
+d_fig[, N := factor(N)]
+
+d_fig[, lab := factor(lab, levels = unique(d_fig$lab))]
+
+
+ggplot(data = d_fig, aes(x = N, y = mu_rd_2_1)) +
+  geom_boxplot(outlier.size = 0.1, lwd = 0.3) +
+  ggh4x::facet_wrap2(lab  ~ . , 
+             labeller = labeller(lab = label_wrap_gen(20)))  +
+  # ggh4x::facet_wrap2(lab  ~ . , 
+  #            labeller = labeller(desc = label_wrap_gen(35)), 
+  #            scales = "free",
+  #            axes = "y",
+  #            independent = "y")  +
+  scale_x_discrete("") +
+  scale_y_continuous("Risk difference", breaks = seq(-0.1, 0.1, by = 0.02)) +
+  theme_bw() +
+  theme(text = element_text(size = 6),
+        strip.text.y.right = element_text(angle = 0,
+                                      hjust = 0,
+                                      vjust = 0.2,
+                                      size = 6),
+        strip.text.x = element_text(angle = 0, size = 6),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 6),
+        axis.text.y = element_text(size = 6),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "grey",
+                                  linewidth = 0.1,
+                                  linetype = 1))
+```
+
+
+## Feedback?
