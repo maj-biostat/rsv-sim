@@ -43,21 +43,15 @@ run_trial <- function(
   
   log_info("Entered  run_trial for trial ", ix)
   
-  # Get enrolment times for arbitrary large set of patients
-  # Simpler to produce enrol times all in one hit rather than try to do them 
-  # incrementally with a non-hom pp.
-  
-  # events per day
-  lambda = 1.0
-  # ramp up over 12 months 
-  rho = function(t) pmin(t/360, 1)
-  
-  loc_t0 <- get_sim01_enrol_time(sum(l_spec$N), lambda, rho)
-  
   # loop controls
   stop_enrol <- FALSE
   l_spec$ia <- 1 # interim number
   N_analys <- length(l_spec$N)
+  
+  # Get enrolment times for arbitrary large set of patients
+  # Simpler to produce enrol times all in one hit rather than try to do them 
+  # incrementally with a non-hom pp.
+  loc_t0 <- c(0, cumsum(rexp(sum(l_spec$N)-1, l_spec$recruit_rate)))
   
   # posterior summaries
   g_par_p = c("p_1", "p_2")
@@ -269,7 +263,7 @@ run_trial <- function(
   
   l_ret <- list(
     # data collected in the trial
-    d_all = d_all[, .(y = sum(y), .N), keyby = .(ia, reg, loc, trt)],
+    d_all = d_all[, .(ty = max(ty), y = sum(y), .N), keyby = .(ia, reg, loc, trt)],
     
     d_post_smry_1 = d_post_smry_1,
     
@@ -301,8 +295,12 @@ run_sim01 <- function(){
   }
   
   l_spec <- list()
+  l_spec$desc <- g_cfgsc$desc
+  l_spec$nsim <- g_cfgsc$nsim
   # N by analysis
   l_spec$N <- g_cfgsc$N_pt
+  l_spec$recruit_rate <- g_cfgsc$recruit_rate
+  l_spec$fu_days <- g_cfgsc$fu_days
   l_spec$p_reg_alloc <- g_cfgsc$reg_alloc
   l_spec$p_loc_alloc_a <- g_cfgsc$loc_alloc_a
   l_spec$p_loc_alloc_d <- g_cfgsc$loc_alloc_d
@@ -330,6 +328,26 @@ run_sim01 <- function(){
   l_spec$thresh$sup <- unlist(g_cfgsc$dec_thresh_sup)
   l_spec$thresh$fut <- unlist(g_cfgsc$dec_thresh_fut)
   
+  # compute marginal risk by group
+  # probability of being in each combination
+  # P(A, U) = P(A)P(U | A) etc
+  # rand is 1:1 so each group has the same weights
+  l_spec$p_alice_urban <- l_spec$p_reg_alloc * (1-l_spec$p_loc_alloc_a)
+  l_spec$p_alice_remote <- l_spec$p_reg_alloc * l_spec$p_loc_alloc_a
+  l_spec$p_darwin_urban <- (1-l_spec$p_reg_alloc) * (1-l_spec$p_loc_alloc_d)
+  l_spec$p_darwin_remote <- (1-l_spec$p_reg_alloc) * l_spec$p_loc_alloc_d
+  
+  # weight combinations by probability of being in strata 
+  l_spec$p_y_ctl <- l_spec$p_alice_urban * (l_spec$bmu + l_spec$breg[1] + l_spec$bloc[1]) + 
+    l_spec$p_alice_remote * (l_spec$bmu + l_spec$breg[1] + l_spec$bloc[2])  + 
+    l_spec$p_darwin_urban * (l_spec$bmu + l_spec$breg[2] + l_spec$bloc[1])  + 
+    l_spec$p_darwin_remote * (l_spec$bmu + l_spec$breg[2] + l_spec$bloc[2]) 
+  
+  l_spec$p_y_trt <- l_spec$p_alice_urban * (l_spec$bmu + l_spec$breg[1] + l_spec$bloc[1] + l_spec$btrt[2]) + 
+    l_spec$p_alice_remote * (l_spec$bmu + l_spec$breg[1] + l_spec$bloc[2] + l_spec$btrt[2])  + 
+    l_spec$p_darwin_urban * (l_spec$bmu + l_spec$breg[2] + l_spec$bloc[1] + l_spec$btrt[2])  + 
+    l_spec$p_darwin_remote * (l_spec$bmu + l_spec$breg[2] + l_spec$bloc[2] + l_spec$btrt[2]) 
+  
   l_spec$nex <- g_cfgsc$nex
   if(l_spec$nex > 0){
     log_info("Creating ", l_spec$nex, " example trials with full posterior")
@@ -337,9 +355,6 @@ run_sim01 <- function(){
   }
   return_posterior <- F
   str(l_spec)
-  
-  
-  
   
   e = NULL
   log_info("Start simulation")
@@ -433,7 +448,7 @@ run_sim01 <- function(){
   } )))
   
   l <- list(
-    cfg = g_cfgsc,
+    cfg = l_spec,
     
     d_pr_dec = d_pr_dec, 
     
