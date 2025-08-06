@@ -12,7 +12,7 @@ args = commandArgs(trailingOnly=TRUE)
 if (length(args)<1) {
   log_info("Setting default run method (does nothing)")
   args[1] = "run_none_sim00"
-  args[2] = "./sim00/cfg-sim00-v06.yml"
+  args[2] = "./sim00/cfg-sim00-v01.yml"
 } else {
   log_info("Run method ", args[1])
   log_info("Scenario config ", args[2])
@@ -53,8 +53,18 @@ run_trial00 <- function(
   
   l_spec$N <- N_total
   
+  # generate the enrolment times for the entire trial sample one time 
+  # and then index as necessary
+  l_spec$t0 <- c(0, cumsum(rexp(l_spec$N-1, l_spec$recruit_rate)))
+  
+  # can use the same data generation process as sim01
   d <- get_sim01_trial_data(l_spec)
   # d[]
+  
+  # ggplot(d, aes(x = t0/365, y = id)) +
+  #   geom_step() +
+  #   theme_bw()
+  # 
   
   pri_a <- l_spec$prior$p[1]
   pri_b <- l_spec$prior$p[2]
@@ -67,7 +77,7 @@ run_trial00 <- function(
   
   # ggplot(d_post, aes(x = value)) +
   #   geom_density() +
-  #   ggh4x::facet_wrap2(~variable) +
+  #   ggh4x::facet_wrap2(~par, nrow = 2, axes = "x") +
   #   theme_bw()
   #
   
@@ -95,7 +105,7 @@ run_trial00 <- function(
   
   l_ret <- list(
     # data collected in the trial
-    d_all = d[, .(y = sum(y), .N), keyby = .(ia, reg, loc, trt)],
+    d_all = d[, .(ty = max(ty), y = sum(y), .N), keyby = .(ia, reg, loc, trt)],
     
     d_post_smry_1 = d_post_smry_1,
     
@@ -124,6 +134,8 @@ run_sim00 <- function(){
   l_spec <- list()
   # N by analysis
   l_spec$N <- g_cfgsc$N_pt
+  l_spec$recruit_rate <- g_cfgsc$recruit_rate
+  l_spec$fu_days <- g_cfgsc$fu_days
   l_spec$p_reg_alloc <- g_cfgsc$reg_alloc
   l_spec$p_loc_alloc_a <- g_cfgsc$loc_alloc_a
   l_spec$p_loc_alloc_d <- g_cfgsc$loc_alloc_d

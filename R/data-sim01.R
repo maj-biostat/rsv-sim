@@ -57,6 +57,8 @@ get_sim01_trial_data <- function(
   
   # Given the simplicity of the model we can specify the linear predictor 
   # directly in terms of risk increments.
+  
+  d[, ty := t0 + l_spec$fu_days]
   d[, p := l_spec$bmu + l_spec$breg[reg] + l_spec$bloc[loc] + l_spec$btrt[trt]]
   d[, y := rbinom(.N, 1, p)]
   
