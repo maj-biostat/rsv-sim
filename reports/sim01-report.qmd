@@ -1,5 +1,5 @@
 ---
-title: Bayesian adaptive trial in RSV
+title: "Territory Health Respiratory Infection Vaccine Evaluation (THRIVE)\\: Adaptive trial of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT"
 subtitle: Simulation Report
 description: |
     Pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
@@ -9,7 +9,7 @@ author:
   - name: Mark Jones
     id: mj
     email: mark.jones1@sydney.edu.au
-version: 0.1
+version: 0.2
 sponsor: University of Newcastle, NSW, Australia
 protocol-number: Version 1.1  01AUG2024
 registration: todo
@@ -80,7 +80,7 @@ if(toks[length(toks)] == "rsv-sim"){
 
 # Reference design
 
-sim_lab <- "sim00-01"
+sim_lab <- "sim00-02"
 
 flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim00")
 toks <- list()
@@ -98,7 +98,7 @@ for(i in 1:length(flist)){
 # Load all the files into a single list.
 
 # files of interest
-sim_lab <- "sim01-01"
+sim_lab <- "sim01-02"
 
 flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim01")
 toks <- list()
@@ -119,7 +119,7 @@ N_sims <- l[[1]]$cfg$nsim
 ::: summary
 |     |        |
 |:----|:------------|
-|Study title:  |  todo |
+|Study title:  |  Territory Health Respiratory Infection Vaccine Evaluation (THRIVE) |
 |Intervention: |  Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg), or standard care. |   
 |Outcome: |  Any occurrence of medically attended RSV-LRI (RSV-LRI) in the 6 months after randomisation |   
 |Study design:  |   Bayesian adaptive trial with early stopping rules | 
@@ -143,9 +143,11 @@ cannot be bothered to implement it in anything else at the moment).
 
 # Version history {.unlisted .unnumbered}
 
-| Version    |   Date     | Change    |   Reason     |
-|:----|:------------|:----|:------------|
-| 0.1 | 2025-06-27 | First version | N/A |
+| Version    |   Date     | Change    |
+|:----|:------|:----------------|
+| 0.1 | 2025-06-27 | First version |
+| 0.2 | 2025-06-27 | Revise interim to start at 600 |
+|     |            | Introduce enrolment times to look at trial duration |
 
 
 {{< pagebreak >}}
@@ -154,7 +156,7 @@ cannot be bothered to implement it in anything else at the moment).
 
 # Introduction
 
-This report documents the methods and results from the simulation study for the RSV trial.
+This report documents the methods and results from the simulation study for THRIVE.
 The report is an operational document that will be updated, as necessary, over the course of the study.
 It should be read in conjunction with the relevant version of the statistical analysis plan.
 
@@ -164,23 +166,33 @@ The results are based on simulation ID ``r sim_lab`` which had ``r N_sims`` simu
  
 # Study overview
 
-The study is a pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
+THRIVE is a pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
 
 # Data generation
 
 Data is generated based on subject matter expertise and while necessarily a simplification of reality, it aims to capture the aspects that are essential to the design.
 The distributional assumptions of each data component follows.
 
+Accrual is based on a homogenous Poisson process for interarrival times (approx 20 enrolments per month).
+This is a simplication, as accrual is likely to ramp up slowly and be seasonal.
+
 We simulate design variables for region, locality and treatment assignment.
 
-Regional allocation is based on a multinomial distribution with two levels with the probability of residing in Alice set to 0.6.
-Conditional on regional allocation, locality (urban or remote) is simulated based on a multinomial distribution with two levels.
+Regional allocation is based on a multinomial distribution with two levels with the probability of residing in Alice^[Used as the reference level in the linear predictor.] set to 0.6.
+Conditional on regional allocation, locality^[Urban is reference in linear predictor vs remote] is simulated based on a multinomial distribution with two levels.
 The probability of remote status given residence in Alice is set to 0.45 and the probability of remote status given residence in Darwin is set to 0.65.
-These values were selected arbitrarily.
+These values were selected arbitrarily and as a summary we have:
+
++ $\text{Pr}(region = Alice) = 0.6$
++ $\text{Pr}(region = Darwin) = 0.4$
++ $\text{Pr}(locality = Urban | region = Alice) = 0.55$
++ $\text{Pr}(locality = Remote | region = Alice) = 0.45$
++ $\text{Pr}(locality = Urban | region = Darwin) = 0.35$
++ $\text{Pr}(locality = Remote | region = Darwin) = 0.65$
 
 Within each region/locality combination intervention vs soc is allocated 1:1.
 
-Occurrence of medically attended RSV-LRI in the 6 months after randomisation is simulated as a bernoulli random variable for each participant with probability computed from a linear risk model.
+Occurrence of medically attended RSV-LRI in the 12 months after randomisation is simulated as a bernoulli random variable for each participant with probability computed from a linear risk model.
 While it is possible that participants will have one or more occurrences of medically attended RSV-LRI in the 6 months after randomisation, the outcome variable simply reflects any occurrence versus none.
 
 No interactions are considered in any aspect of the data generating process.
@@ -194,7 +206,7 @@ To speed up parameter estimation, we aggregate the number of successes and numbe
 
 # Modelling {#sec-modelling}
 
-While the data are simulated using a linear risk model, the simulation model is specified as a multivariable logistic regression model from which we subsequently transform the parameters back to the risk scale via the inverse link and a g-computation step.
+While the data are simulated using a linear risk model, the simulation model is specified as a multivariable logistic regression model from which we subsequently transform the parameters back to the risk scale via the inverse link and then marginalise over the sample covariate distribution.
 The model form is:
 
 $$
@@ -237,7 +249,7 @@ The prior has 90% of the density between `r sprintf("%.2f", qq[1])` and `r sprin
 
 ```{r, echo = F, eval = T}
 #| label: fig-prior-intercept
-#| fig-cap: 'Prior on intercept'
+#| fig-cap: 'Prior on model intercept term'
 #| fig-height: 4
 #| fig-width: 4
 #| fig-pos: H
@@ -269,17 +281,61 @@ ggplot(d_fig, aes(x = plogis(x))) +
   ) 
 ```
 
-In addition to the target adaptive design, results are provided under a fixed design that adopts a beta-binomial model, independent uniform priors on the proportion of failures in each group and a single analysis at the maximum sample size.
-The reference design uses the same rules, decision thresholds and evidential values as the adaptive design.
+In addition to the target adaptive design, results are provided under a fixed design that adopts a beta-binomial model and a single analysis at the maximum sample size.
+The weakly informative prior used for both treatment arms is shown in @fig-prior-prop, which is similar to that used in the model for the adaptive trial on the intercept term when transformed to the probability scale.
 
-# Decision procedures
+```{r, echo = F, eval = T}
+#| label: fig-prior-prop
+#| fig-cap: 'Prior on proportion of failures'
+#| fig-height: 4
+#| fig-width: 4
+#| fig-pos: H
+
+
+d_fig <- data.table(
+  x = rbeta(1e6, unlist(l0[[1]]$cfg$pri_p)[1], unlist(l0[[1]]$cfg$pri_p)[2])
+)
+
+# d_fig <- data.table(
+#   x = rbeta(1e6, 1.9, 9)
+# ) 
+  
+ggplot(d_fig, aes(x = x)) +
+  geom_density() +
+  scale_x_continuous("Intercept", breaks = seq(0, 1, by = 0.1)) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.box="horizontal",
+    strip.text.y.right = element_text(angle = 0,
+                                      hjust = 0,
+                                      vjust = 0.2,
+                                      size = 7),
+    axis.ticks = element_blank(),
+    strip.text.x.top = element_text(size = 7),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey",
+                                  linewidth = 0.1,
+                                  linetype = 1),
+    axis.title.y=element_text(size = 7),
+    axis.text.y = element_text(size = 7),
+    axis.text.x =  element_text(size = 7),
+    axis.title.x = element_text(size = 7),
+    legend.text = element_text(size = 7)
+  ) 
+```
+ 
+The reference design uses the same rules, decision thresholds and evidential values as the adaptive design.
+Specifically, we evaluate the posterior distribution for the risk difference across groups for superiority and futility (lack of efficacy) based on the definitions in @sec-decision-procedures.
+
+# Decision procedures {#sec-decision-procedures}
 
 The decision processes are based on the data accumulated up to the current time and are thus interpreted with reference to the current available evidence.
 The approach is simple and offers a transparent interpretation, but it ignores the possibility that subsequent data may shift the posterior.
 
-If the treatment strategy is successful, then the probability of medically attended RSV-LRI in the 6 months after randomisation will be lower in the treatment arm than it will under standard of care and this would lead to negative risk difference values.
+If the treatment strategy is successful, then the probability of medically attended RSV-LRI in the 12 months after randomisation will be lower in the treatment arm than it will under standard of care, which leads to negative risk difference values.
 
-In the current design, we implement superiority and futility rules for early stopping.
+In the current design, superiority and futility rules are implemented for early stopping.
 Superiority is framed as a high probability that the risk difference is negative, whereas futility is framed as a low probability that the risk difference is below some small negative reference value.
 If a decision threshold is met, then we will stop recruitment into the relevant arm.
 This approach is adopted for each interim and the final analysis.
@@ -295,9 +351,9 @@ The decision thresholds and evidential thresholds are shown in @tbl-dec-threshol
 #| results: asis
 
 d_dec_pars <- data.table(
-  desc = c("Superiority", "Inferiority"),
-  ref_value = c(l[[1]]$cfg$dec_delta_sup, l[[1]]$cfg$dec_delta_fut),
-  threshold = c(l[[1]]$cfg$dec_thresh_sup, l[[1]]$cfg$dec_thresh_fut),
+  desc = c("Superiority", "Futility"),
+  ref_value = c(l[[1]]$cfg$delta$sup, l[[1]]$cfg$delta$fut),
+  threshold = c(l[[1]]$cfg$thresh$sup, l[[1]]$cfg$thresh$fut),
   form = c(
     "$\\text{Pr}(RD < \\epsilon) > \\zeta$",
     "$\\text{Pr}(RD < \\epsilon) < \\zeta$"
@@ -330,11 +386,13 @@ gt_tbl  |>
 
 ```
 
+So, if there is more than `r l[[1]]$cfg$thresh$sup` of the posterior density for the risk difference above `r l[[1]]$cfg$delta$sup` we declare superiority.
+If there is less than `r l[[1]]$cfg$thresh$fut` of the posterior density for the risk difference below `r l[[1]]$cfg$delta$fut` we declare futility.
 
 # Scenarios
 
-Each scenario adopts a maximum sample size of 1000 with interim analyses run after 400 enrolments have reached their primary endpoint and every 200 thereafter.
-Given the use of a linear risk model in the data generation process, the treatment effects were specified as risk differences.
+Each scenario adopts a maximum sample size of 1000 with interim analyses run after 600 enrolments have reached their primary endpoint and every 200 thereafter.
+Given the use of a linear risk model in the data generation process, the treatment effects are specified as risk differences.
 
 ```{r, echo = F, eval = T}
 #| label: scenario_list
@@ -352,13 +410,15 @@ d_scenarios <- data.table()
 for(i in 1:length(l)){
   l_cfg <- copy(l[[i]]$cfg)
   
-  btrt <- unlist(l_cfg$btrt)
+  btrt <- l_cfg$btrt
+  p_y_marg_ctl <- l_cfg$p_y_ctl
   
   d_scenarios <- rbind(
     d_scenarios,
     data.table(
       id = i,
       desc = l_cfg$desc,
+      p_0 = p_y_marg_ctl,
       rd = btrt[2] - btrt[1]
     )
   )
@@ -377,19 +437,21 @@ gt_tbl <- gt(d_scenarios) |>
   cols_width(
     id ~ pct(10),
     desc ~ pct(50),
-    rd ~ pct(40)
+    p_0 ~ pct(20),
+    rd ~ pct(20)
   ) |>
   cols_align(
     columns = 1:2,
     align = "left"
   ) |>
   cols_align(
-    columns = 3,
+    columns = 3:4,
     align = "center"
   )  |>
   cols_label(
     id = "ID",
     desc = "Scenario",
+    p_0 = "Marginal baseline risk",
     rd = "Effect size (risk difference)"
   ) |>
   tab_options(
@@ -401,9 +463,9 @@ gt_tbl
 ```
 
 
-@tbl-scenarios shows the scenarios evaluated within these simulations and @fig-strata-risk provides a visual summary of the probability of medically attended RSV-LRI in the 6 months after randomisation in each strata for the simulations.
+@tbl-scenarios shows the scenarios evaluated within these simulations and @fig-strata-risk provides a visual summary of the probability of medically attended RSV-LRI in the 12 months after randomisation in each strata for the simulations.
 All scenarios used fixed covariate distributions and effects over the duration of the study. 
-Additionally, all simulations used the same reference values and decision thresholds.
+Additionally, the same reference values and decision thresholds were used in all simulations.
 
 ```{r, echo = F, eval = T}
 #| label: risk-grid
@@ -471,6 +533,7 @@ d_fig[, trt := factor(trt, levels = 1:2, labels = c("Soc", "Trt"))]
 # d_tbl_1_cur <- dcast(d_tbl_1_cur, id + desc ~ reg + loc + trt, value.var = "p")
 
 d_fig[, desc := sprintf("%s (RD = %.3f)", desc, rd_trt)]
+d_fig[, desc := factor(desc, levels = unique(d_fig$desc))]
 
 d_fig[, reg := factor(reg, levels = 1:2, labels = c("Alice", "Darwin"))]
 d_fig[, loc := factor(loc, levels = 1:2, labels = c("Urban", "Remote"))]
@@ -542,7 +605,7 @@ for(i in 1:length(l)){
   l_cfg <- copy(l[[i]]$cfg)
   
   # number of enrolments at each interim (interim sample size sequence)
-  d_N <- data.table(ia = seq_along(l_cfg$N_pt), N = cumsum(l_cfg$N_pt))
+  d_N <- data.table(ia = seq_along(l_cfg$N), N = cumsum(l_cfg$N))
   
   
   
@@ -641,11 +704,6 @@ g_tbl <- d_tbl_1_cur |>
     align = "center"
   )  |> 
   cols_merge(
-    columns = c("sup_400", "fut_400"
-                ),
-    pattern = "<<{1}>><< ({2})>>"
-  )   |> 
-  cols_merge(
     columns = c("sup_600", "fut_600"
                 ),
     pattern = "<<{1}>><< ({2})>>"
@@ -674,7 +732,6 @@ g_tbl <- d_tbl_1_cur |>
   )  |>
   cols_label(
     rd_trt = "Effect size (risk diff)",
-    sup_400 = html("400"),
     sup_600 = html("600"),
     sup_800 = html("800"),
     sup_1000 = html("1000"),
@@ -748,7 +805,119 @@ ggplot(d_fig_1, aes(x = N, y = pr_val, group = rule, col = rule, lty = rule)) +
 ```
 
 
+
+
 ## Sample size
+
+### Accrual
+
+```{r, echo = F, eval = T}
+#| label: accrual
+#| code-summary: Follow up time
+
+# 
+
+i <- 1
+d_fu0 <- data.table()
+d_fu <- data.table()
+
+for(i in 1:length(l)){
+  
+  # observed trial data sets - duration of fixed design
+  d_all <- copy(l0[[i]]$d_all)
+  # config for scenario
+  l0_cfg <- copy(l0[[i]]$cfg)
+  
+  d_fu0 <- rbind(
+    d_fu0, 
+    data.table(
+      id = i, desc = l0_cfg$desc, fu_0 = mean(d_all$ty/365)
+    ))
+  
+  d_all <- copy(l[[i]]$d_all)
+  
+  # pick  out the last interim by sim and then compute the average across the
+  # region and locality strata
+  d_last <- d_all[d_all[, .I[ia == max(ia)], by = sim]$V1, .(ty = mean(ty/365)), keyby = sim]
+  
+  
+  # config for scenario
+  l_cfg <- copy(l[[i]]$cfg)
+  
+  d_fu <- rbind(
+    d_fu, 
+    data.table(
+      id = i, desc = l_cfg$desc, 
+      rd_trt = l_cfg$btrt[2] - l_cfg$btrt[1],
+      fu_mu = mean(d_last$ty), fu_sd = sd(d_last$ty)
+    ))
+  
+}
+
+d_fu <- merge(
+  d_fu, d_fu0, by = c("id", "desc")
+)
+```
+
+For the fixed design, the final enrolment is expected to reach the 12 month followup at `r sprintf("%.1f", d_fu0[, mean(fu_0)])` years.
+For the adaptive trial, the 12 month followup for the final enrolment varies by scenario as shown in @tbl-trial-duration.
+
+```{r, eval = T}
+#| echo: FALSE
+#| label: tbl-trial-duration
+#| tbl-pos: H
+#| tbl-cap: "Duration of trial (adaptive trial shows mean and sd, fixed shows mean years)"
+
+d_tbl <- copy(d_fu)
+
+# d_tbl[, desc := paste0(desc, " (RD = ", rd_trt, ")")]
+# d_tbl[, desc := factor(desc, levels = unique(d_tbl$desc))]
+
+gt_tbl <- gt(d_tbl[, .SD, .SDcols = !c("id")], 
+             groupname_col = "desc") |>
+  cols_merge(
+    columns = c("fu_mu", "fu_sd"),
+    pattern = "<<{1}>><< ({2})>>"
+  ) |>
+  fmt_number(
+    columns = c("fu_mu", "fu_sd", "fu_0"),
+    decimals = 2, drop_trailing_zeros = TRUE)  |>
+  cols_align(
+    columns = c("rd_trt"),
+    align = "left"
+  ) |>
+  tab_spanner(
+    label = md("Years for final enrolment to reach 12 months followup"),
+    columns = c("fu_mu", "fu_sd", "fu_0")
+    )|>
+  cols_align(
+    columns = c("fu_mu"),
+    align = "right"
+  ) |>
+  cols_align(
+    columns = c("fu_0"),
+    align = "right"
+  ) |>
+  cols_width(
+    starts_with("rd_trt") ~ pct(30),
+    starts_with("fu_mu") ~ pct(30),
+    starts_with("fu_0") ~ pct(20)
+  ) |>
+  cols_label(
+    desc = "Scenario",
+    rd_trt = "",
+    fu_mu = "Adaptive",
+    fu_0 = "Fixed"
+  ) |>
+  tab_options(
+    table.width = pct(80),
+    container.width = pct(80),
+    table.font.size = pct(65)) 
+
+gt_tbl 
+```
+
+
 
 ### Randomised comparisons
 
@@ -774,8 +943,8 @@ for(i in 1:length(l)){
   rd_trt <- b_trt[2] - b_trt[1]
   # interim looks
   d_enrolment <- data.table(
-    ia = seq_along(l_cfg$N_pt), 
-    N_enrol = cumsum(l_cfg$N_pt))
+    ia = seq_along(l_cfg$N), 
+    N_enrol = cumsum(l_cfg$N))
   # observed trial data sets
   d_all <- copy(l[[i]]$d_all)
   
@@ -783,6 +952,9 @@ for(i in 1:length(l)){
   d_n_trt <- d_all[, .(N = sum(N)), keyby = .(sim, ia, trt)]
   # obtain the cumulative sum of trials by sim and trt over interims
   d_n_trt[, N := cumsum(N), keyby = .(sim, trt)]
+  
+  # max duration across strata by sim, interim 
+  d_dur <- d_all[, .(ty = max(ty/365)), keyby = .(sim, ia)]
   
   # identify the first decision triggered by simulation
   d_trt_dec <- base::merge(
@@ -807,6 +979,8 @@ for(i in 1:length(l)){
   # merge decision in with the total sample size by arm for the randomised 
   # comparison when the decision was made
   d_trt_dec <- base::merge(d_n_trt, d_trt_dec, by = c("sim", "ia"))
+  
+  d_trt_dec <- base::merge(d_trt_dec, d_dur, by = c("sim", "ia"))
   setkey(d_trt_dec, sim, ia, trt)
   
   
@@ -827,7 +1001,7 @@ for(i in 1:length(l)){
 #| tbl-pos: H
 
 d_tbl_1_cur <- d_N_by_rand[
-  , .(N_mu = mean(N), pct = .N/N_sims), 
+  , .(N_mu = mean(N), pct = .N/N_sims, ty = mean(ty)), 
   keyby = .(scenario, desc, decision, trt, rd_trt)]
 
 
@@ -835,7 +1009,7 @@ d_tbl_1_cur[, desc := sprintf("%s (RD = %.3f)", desc, rd_trt)]
 
 d_tbl_1_cur <- dcast(
   d_tbl_1_cur, 
-  scenario + desc + decision + pct ~ trt , 
+  scenario + desc + decision + pct + ty ~ trt , 
   value.var = list("N_mu"))
 
 d_tbl_1_cur[, decision := factor(
@@ -864,22 +1038,27 @@ g_tbl <- d_tbl_1_cur |>
   fmt_number(
     columns = c("pct"),
     decimals = 2, drop_trailing_zeros = TRUE) |> 
+  fmt_number(
+    columns = c("ty"),
+    decimals = 2, drop_trailing_zeros = TRUE) |> 
   cols_width(
-    starts_with("decision") ~ pct(30),
+    starts_with("decision") ~ pct(20),
     starts_with("pct") ~ pct(20),
-    starts_with("N_") ~ pct(25)
+    starts_with("ty") ~ pct(20),
+    starts_with("N_") ~ pct(20)
   ) |>
   cols_align(
     columns = c("decision"),
     align = "left"
   ) |>
   cols_align(
-    columns = c("pct"),
+    columns = c("pct", "ty"),
     align = "center"
   )  |>
   cols_label(
     decision = "Decision",
     pct = "Proportion of trials",
+    ty = "Expected years to last followup",
     N_1 = "SOC", N_2 = "Trt"
   ) |>
   tab_options(
@@ -936,7 +1115,7 @@ for(i in 1:length(l)){
   d_pars <- d_pars[par %like% c("rd")]
   
   # interim looks
-  d_N <- data.table(ia = seq_along(l_cfg$N_pt), N = cumsum(l_cfg$N_pt))
+  d_N <- data.table(ia = seq_along(l_cfg$N), N = cumsum(l_cfg$N))
   
   # observed trial data sets
   # d_all <- copy(l[[i]]$d_all)
@@ -956,7 +1135,8 @@ for(i in 1:length(l)){
   d_post_1 <- rbind(
     d_post_1,
     cbind(
-      scenario = i, desc = sprintf("%s (RD = %.3f)", l_cfg$desc, rd_trt),
+      scenario = i, desc = l_cfg$desc,
+      rd_trt = rd_trt,
       d_pars[, .(ia, sim, N, mu_rd_2_1, se_rd_2_1)]
       )
   )
@@ -1007,20 +1187,20 @@ d_tbl_1_cur <- d_post_1[,
                  .(rd = mean(mu_rd_2_1),
                    q_025 = quantile(mu_rd_2_1, prob = 0.025),
                    q_975 = quantile(mu_rd_2_1, prob = 0.975)), 
-                 keyby = .(scenario, desc, ia, N)]
+                 keyby = .(scenario, desc, rd_trt, ia, N)]
 # setorderv(d_fig, cols = "scenario", order = -1L)
 d_tbl_1_cur[, desc := factor(desc, levels = unique(d_post_1$desc))]
 
 
-d_tbl_1_cur <- dcast(d_tbl_1_cur, scenario + desc ~ N, value.var = list("rd", "q_025", "q_975"))
+d_tbl_1_cur <- dcast(d_tbl_1_cur, scenario + desc + rd_trt ~ N, value.var = list("rd", "q_025", "q_975"))
 
 ci_names <- function(x = 500){
   paste0(c("rd_","q_025_", "q_975_"), x)
 }
 setcolorder(
   d_tbl_1_cur, 
-  c("scenario", "desc",  
-    ci_names(400), ci_names(600), ci_names(800), ci_names(1000)))
+  c("scenario", "desc",  "rd_trt", 
+    ci_names(600), ci_names(800), ci_names(1000)))
 
 
 
@@ -1040,12 +1220,12 @@ setnames(
 
 d_tbl_1_cur <- merge(d_tbl_1_cur, d_tbl_2_cur, by = c("scenario"))
 
-
 d_tbl_1_cur <- d_tbl_1_cur[, .SD, .SDcols = !c("scenario")]
 
 
 g_tbl <- d_tbl_1_cur |>
-  gt(groupname_col = "desc")  |> 
+  gt(groupname_col = "desc",
+     rowname_col = "rd_trt")  |> 
   gt::text_transform(
     locations = cells_row_groups(),
     fn = function(x) {
@@ -1063,10 +1243,6 @@ g_tbl <- d_tbl_1_cur |>
     align = "right"
   )   |> 
   cols_merge(
-    columns = c("rd_400", "q_025_400", "q_975_400"),
-    pattern = "<<{1}>><< ({2}, {3})>>"
-  )  |> 
-  cols_merge(
     columns = c("rd_600", "q_025_600", "q_975_600"),
     pattern = "<<{1}>><< ({2}, {3})>>"
   )  |> 
@@ -1083,7 +1259,6 @@ g_tbl <- d_tbl_1_cur |>
     pattern = "<<{1}>><< ({2}, {3})>>"
   )  |>
   cols_label(
-    rd_400 = "400",
     rd_600 = "600",
     rd_800 = "800",
     rd_1000 = "1000",
@@ -1113,12 +1288,16 @@ g_tbl
 
 d_fig <- copy(d_post_1)
 d_fig[, desc := factor(desc, levels = unique(d_fig$desc))]
+
+d_fig[, lab := paste0(desc, " (", rd_trt, ")")]
 d_fig[, N := factor(N)]
+
+d_fig[, lab := factor(lab, levels = unique(d_fig$lab))]
 
 
 ggplot(data = d_fig, aes(x = N, y = mu_rd_2_1)) +
   geom_boxplot(outlier.size = 0.1, lwd = 0.3) +
-  ggh4x::facet_grid2(desc ~ . , 
+  ggh4x::facet_grid2(lab  ~ . , 
              labeller = labeller(desc = label_wrap_gen(35)), 
              scales = "free",
              axes = "y",
@@ -1162,13 +1341,13 @@ for(i in 1:length(l)){
   
   # interim looks
   d_enrolment <- data.table(
-    ia = seq_along(l_cfg$N_pt), 
-    N_enrol = cumsum(l_cfg$N_pt))
+    ia = seq_along(l_cfg$N), 
+    N_enrol = cumsum(l_cfg$N))
   
   # enrolment
   d_N <- data.table(
-    ia = seq_along(l_cfg$N_pt), 
-    N = cumsum(l_cfg$N_pt))
+    ia = seq_along(l_cfg$N), 
+    N = cumsum(l_cfg$N))
 
   b_trt <- unlist(l_cfg$btrt)
   rd_trt <- b_trt[2] - b_trt[1]
@@ -1214,7 +1393,7 @@ setnames(d_prop_success, paste0(1:2), paste0("p_obs_", 1:2))
 
 d_tbl_1_cur <- copy(d_prop_success)
 # setorderv(d_fig, cols = "scenario", order = -1L)
-d_tbl_1_cur[, desc := factor(desc, levels = unique(d_post_1$desc))]
+d_tbl_1_cur[, desc := factor(desc, levels = unique(d_prop_success$desc))]
 
   
   
