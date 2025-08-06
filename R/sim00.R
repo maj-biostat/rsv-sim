@@ -132,6 +132,8 @@ run_sim00 <- function(){
   }
   
   l_spec <- list()
+  l_spec$desc <- g_cfgsc$desc
+  l_spec$nsim <- g_cfgsc$nsim
   # N by analysis
   l_spec$N <- g_cfgsc$N_pt
   l_spec$recruit_rate <- g_cfgsc$recruit_rate

@@ -10,10 +10,13 @@ Use `just -l` to list targets then `just sim01 [cfgfilename]` to run using simul
 
 ## todo
 
-convert output to word doc
+add example trials
+reduce baseline risk to check sensitivity
+make sim00 consistent with sim01 in terms of lspec.
+once done, propagate lspec change implications through to reporting
 
-use simplified tables
+convert output to word doc
+use simplified tables?
 determine how to deal with ggplot output scaling
 
-incorporating timing and summarise duration of trial
 

@@ -83,7 +83,7 @@ N_sims <- l[[1]]$cfg$nsim
 
 Adaptive trial of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
 
-## Estimand
+## Primary estimand
 
 ```{r}
 #| echo: false
@@ -98,16 +98,22 @@ d_tbl <- data.table(
     "Population", "Treatment conditions", "Endpoint", "Summary measure", "Handling intercurrent events"
   ),
   spec = c(
-    "All First Nations infants 6 months (+90 days), including infants who received passive antibody protection from maternal RSV vaccination, infants who received first dose nirsevimab at birth, infants who received both maternal RSV vaccine protection and nirsevimab, and infants who received neither",
-    "Intervention group: Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg). Control: standard care (please define).",
-    "Medically attended RSV-LRI: any notification of laboratory-confirmed RSV infection to the NT Notifiable Disease System from time of randomisation to 6-months or 12-months (TBD) post randomisation date.",
+    "All First Nations infants age 6-9 months at enrolment, including infants who received passive antibody protection from maternal RSV vaccination, infants who received first dose nirsevimab at birth, infants who received both maternal RSV vaccine protection and nirsevimab, and infants who received neither",
+    "Intervention group: Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg). Control: standard care (detail required).",
+    "Medically attended RSV-LRI: ascertained via review of notifications for laboratory-confirmed RSV infection to the NT Notifiable Disease System from time of randomisation to 6-months or 12-months (TBD) post randomisation date.",
     "Risk difference between treatment groups",
     "Treatment policy"
   )
 )
-setnames(d_tbl, c("Estimand Component", "Specification"))
 
-gt(d_tbl)
+gt(d_tbl) |>
+  cols_label(
+    attr = "Estimand Component",
+    spec = ""
+  ) |>
+  tab_options(
+    table.font.size = pct(70)
+  ) 
 
 ```
 
@@ -117,18 +123,22 @@ gt(d_tbl)
 
 - 2-arm adaptive trial
 - adaptation is early stopping
-- interim analyses after 600, 800, 1000 reach 12-month FU
-- 1:1 rand within design strata
+- analyses after 600, 800, 1000 have reached 12-month FU
+- 1:1 rand within baseline covariate grouping (region, locality)
 
 . . .
 
 - sims assume 12-month endpoint
-- need to include stratification based on infant baseline vax
+
+. . .
+
+- todo: include randomisation based on infant baseline vax
+- todo: example trials
 
 ## Probability model
 
 - Logistic regresssion (weakly informative priors)
-- Parameters transformed to risk differences
+- Parameters (log-OR) transformed to risk differences
 
 $$
 \begin{aligned}
@@ -140,7 +150,7 @@ $$
 
 ## Decision procedures
 
-- Superiority - more than 0.975 of the posterior density for the RD(trt) above 0
+- Superiority - more than 0.975 of the posterior density for the RD(trt) below 0
 - Futility (lack of efficacy) - less than 0.2 of the posterior density for the RD(trt) below -0.02
 
 ```{r}
@@ -221,7 +231,10 @@ gt_tbl <- gt(d_scenarios[, .SD, .SDcols = !c("id")]) |>
     desc = "Scenario",
     p_0 = "Marginal baseline risk",
     rd = "Effect of treatment (risk difference)"
-  )
+  ) |>
+  tab_options(
+    table.font.size = pct(60)
+  ) 
 
 gt_tbl 
 ```
@@ -496,8 +509,6 @@ gt_tbl
 ```{r}
 #| echo: false
 
-# 
-
 i <- 1
 d_N_by_rand <- data.table()
 
@@ -566,12 +577,12 @@ d_tbl_1_cur <- d_N_by_rand[
   , .(N_mu = mean(N), pct = .N/N_sims, ty = mean(ty)), 
   keyby = .(scenario, desc, decision, rd_trt)]
 
-
-d_tbl_1_cur[, desc := sprintf("%s (RD = %.3f)", desc, rd_trt)]
+# 
+# d_tbl_1_cur[, desc := sprintf("%s (RD = %.3f)", desc, rd_trt)]
 
 d_tbl_1_cur <- dcast(
   d_tbl_1_cur, 
-  scenario + desc + decision + pct + ty ~ . , 
+  scenario + desc + rd_trt + decision + pct + ty ~ . , 
   value.var = list("N_mu"))
 
 d_tbl_1_cur[, decision := factor(
@@ -612,6 +623,10 @@ g_tbl <- d_tbl_1_cur |>
     starts_with("N") ~ pct(20)
   ) |>
   cols_align(
+    columns = c("rd_trt"),
+    align = "left"
+  ) |>
+  cols_align(
     columns = c("decision"),
     align = "left"
   ) |>
@@ -620,13 +635,14 @@ g_tbl <- d_tbl_1_cur |>
     align = "center"
   )  |>
   cols_label(
+    rd_trt = "",
     decision = "Decision",
     pct = "Proportion of trials",
     ty = "Expected years to last followup",
     N = "N"
   ) |>
   tab_options(
-    table.font.size = pct(25)
+    table.font.size = pct(30)
   ) 
 
 g_tbl
@@ -768,4 +784,4 @@ ggplot(data = d_fig, aes(x = N, y = mu_rd_2_1)) +
 ```
 
 
-## Feedback?
+## Comments?
