@@ -786,4 +786,15 @@ ggplot(data = d_fig, aes(x = N, y = mu_rd_2_1)) +
 ```
 
 
+## Conclusion
+
++ AD controls type-i at the nominal 5%
++ AD achieves nominal >80% power at 4.5% risk difference when assuming a baseline risk around 10%
++ AD generally shorter in duration than fixed design
+
+. . .
+
++ AD will result in inconclusive result around 30% of time under null scenario
++ AD more likely to conclude futility (lack of efficacy) than fixed design under all scenarios
+
 ## Comments?
