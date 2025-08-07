@@ -99,11 +99,11 @@ d_tbl <- data.table(
     "Population", "Treatment conditions", "Endpoint", "Summary measure", "Handling intercurrent events"
   ),
   spec = c(
-    "All First Nations infants age 6-9 months at enrolment, including infants who received passive antibody protection from maternal RSV vaccination, infants who received first dose nirsevimab at birth, infants who received both maternal RSV vaccine protection and nirsevimab, and infants who received neither",
-    "Intervention group: Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg). Control: standard care (detail required).",
+    "All First Nations infants age 6-9 months at enrolment, including infants who received passive antibody protection from maternal RSV vaccination, infants who received first dose nirsevimab at birth, infants who received both maternal RSV vaccine protection and nirsevimab, and infants who received neither.",
+    "Intervention group: Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg). Control: standard care (no vaccination).  Randomisation occurs on enrolment (at 6-9 months) and dose administration (or none) occurs immediately. Open label.",
     "Medically attended RSV-LRI: ascertained via review of notifications for laboratory-confirmed RSV infection to the NT Notifiable Disease System from time of randomisation to 6-months or 12-months (TBD) post randomisation date.",
     "Risk difference between treatment groups",
-    "Treatment policy"
+    "Treatment policy. ICEs that impact the interpretation of the outcome: non-receipt of treatment (e.g. vaccination cannot take place), delayed treatment, wrong dose, use of additional RSV prophylaxis. ICEs that impact the existence of the outcome: death, access to clinics prevents testing, inter-state migration leading to use of other registry, use of medicines that mask symptoms and lead to not testing, other conditions that have similar symptoms and lead to not testing. Potential for differential dropout due to open label (control group has less to gain from involvement)."
   )
 )
 
@@ -113,7 +113,7 @@ gt(d_tbl) |>
     spec = ""
   ) |>
   tab_options(
-    table.font.size = pct(70)
+    table.font.size = pct(45)
   ) 
 
 ```
@@ -135,6 +135,7 @@ gt(d_tbl) |>
 
 - todo: include randomisation based on infant baseline vax
 - todo: example trials
+- todo: consider impact of RSV before 6 months
 
 ## Probability model
 
