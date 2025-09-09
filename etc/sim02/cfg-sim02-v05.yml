@@ -1,0 +1,46 @@
+default:
+  desc: "Treatment increases RSV-LRI attendances"
+  nsim: 1000
+  mc_cores: 40
+  # example trials
+  nex: 10
+  N_pt: [600, 200, 200]
+  # accrual per day (about 270 per year)
+  pt_per_day: 0.75
+  ramp_up_days: 90
+  
+  # days fu to endpoint (deterministic)
+  fu_days: 180
+  
+  # 60% in alice = 1, darwin = 2
+  reg_alloc: 0.60
+  # 45% remote = 2, urban = 1 for alice 
+  loc_alloc_a: 0.45
+  # 65% remote = 2, urban = 1 for darwin = 2
+  loc_alloc_d: 0.65
+  
+  # model parameters
+  # reference logodds from which all others deviate
+  b_0: 0.1 
+  # effect of being in darwin relative to alice
+  b_reg: [0, -0.03] 
+  # effect of being remote relative to urban
+  # assume the effect of remoteness is the same irrespective of whether 
+  # you are in alice or darwin
+  b_loc: [0, 0.02] 
+  # intervention
+  b_trt: [0,   0.01] 
+  
+  # priors - remember, these are all for logistic regression
+  pri_b_0: [-1.8, 0.6] # mean, scale for each par set
+  pri_b_reg: [0, 3]
+  pri_b_loc: [0, 3]
+  pri_b_trt: [0, 3]
+  
+  # decision reference values
+  dec_delta_sup: 0
+  dec_delta_fut: -0.02
+  # decision probability thresholds
+  dec_thresh_sup: 0.975
+  dec_thresh_fut: 0.200
+    
