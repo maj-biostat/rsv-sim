@@ -1,5 +1,6 @@
 
 source("./R/init.R")
+source("./R/data.R")
 source("./R/data-sim01.R")
 
 # Command line arguments list scenario (true dose response),

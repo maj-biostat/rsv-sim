@@ -1,5 +1,6 @@
 
 source("./R/init.R")
+source("./R/data.R")
 # same data generating process
 source("./R/data-sim01.R")
 
