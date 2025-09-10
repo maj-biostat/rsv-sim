@@ -56,7 +56,12 @@ run_trial00 <- function(
   
   # generate the enrolment times for the entire trial sample one time 
   # and then index as necessary
-  l_spec$t0 <- c(0, cumsum(rexp(l_spec$N-1, l_spec$recruit_rate)))
+  lambda = l_spec$pt_per_day
+  # ramp up over x days 
+  rho = function(t) pmin(t/l_spec$ramp_up_days, 1)
+  
+  l_spec$t0 <- get_enrol_time(sum(l_spec$N), lambda, rho)
+  l_spec$tfu <- l_spec$t0 + l_spec$fu_days
   
   # can use the same data generation process as sim01
   d <- get_sim01_trial_data(l_spec)
@@ -80,8 +85,7 @@ run_trial00 <- function(
   #   geom_density() +
   #   ggh4x::facet_wrap2(~par, nrow = 2, axes = "x") +
   #   theme_bw()
-  #
-  
+
   
   d_post_smry_1 <- d_post[, .(
     mu = mean(value),
@@ -106,10 +110,8 @@ run_trial00 <- function(
   
   l_ret <- list(
     # data collected in the trial
-    d_all = d[, .(ty = max(ty), y = sum(y), .N), keyby = .(ia, reg, loc, trt)],
-    
+    d_all = copy(d),
     d_post_smry_1 = d_post_smry_1,
-    
     d_pr_dec = d_pr_dec
   )
   
@@ -119,7 +121,6 @@ run_trial00 <- function(
   # 
   
   l_ret
-  
   
 }
 
@@ -135,20 +136,28 @@ run_sim00 <- function(){
   l_spec <- list()
   l_spec$desc <- g_cfgsc$desc
   l_spec$nsim <- g_cfgsc$nsim
+  l_spec$nex <- g_cfgsc$nex
+  
   # N by analysis
   l_spec$N <- g_cfgsc$N_pt
-  l_spec$recruit_rate <- g_cfgsc$recruit_rate
+  
+  l_spec$pt_per_day <- g_cfgsc$pt_per_day
+  l_spec$ramp_up_days <-  g_cfgsc$ramp_up_days
+  
   l_spec$fu_days <- g_cfgsc$fu_days
+  l_spec$fu_lab <- g_cfgsc$fu_lab
+  
+  # distribution of demographics (region and locality)
   l_spec$p_reg_alloc <- g_cfgsc$reg_alloc
   l_spec$p_loc_alloc_a <- g_cfgsc$loc_alloc_a
   l_spec$p_loc_alloc_d <- g_cfgsc$loc_alloc_d
   
   # model parameters
   # model params
-  l_spec$bmu <- g_cfgsc$bmu
-  l_spec$breg <- unlist(g_cfgsc$breg)
-  l_spec$bloc <- unlist(g_cfgsc$bloc)
-  l_spec$btrt <- unlist(g_cfgsc$btrt)
+  l_spec$b_0 <- g_cfgsc$b_0
+  l_spec$b_reg <- unlist(g_cfgsc$b_reg)
+  l_spec$b_loc <- unlist(g_cfgsc$b_loc)
+  l_spec$b_trt <- unlist(g_cfgsc$b_trt)
   
   # priors on beta binomial
   l_spec$prior <- list()
@@ -164,14 +173,12 @@ run_sim00 <- function(){
   l_spec$thresh$sup <- unlist(g_cfgsc$dec_thresh_sup)
   l_spec$thresh$fut <- unlist(g_cfgsc$dec_thresh_fut)
   
-  l_spec$nex <- g_cfgsc$nex
   if(l_spec$nex > 0){
     log_info("Creating ", l_spec$nex, " example trials with full posterior")
     l_spec$ex_trial_ix <- sort(sample(1:g_cfgsc$nsim, size = l_spec$nex, replace = F))
   }
-  return_posterior <- F
+  return_posterior <- T
   str(l_spec)
-  
   
   
   ## LOOP -------
@@ -236,7 +243,7 @@ run_sim00 <- function(){
   } )))
   
   l <- list(
-    cfg = g_cfgsc,
+    cfg = l_spec,
     d_pr_dec = d_pr_dec, 
     d_post_smry_1 = d_post_smry_1,
     d_all = d_all,

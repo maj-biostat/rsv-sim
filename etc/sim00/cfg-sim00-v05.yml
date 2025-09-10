@@ -3,12 +3,17 @@ default:
   nsim: 5000
   mc_cores: 40
   # example trials
-  nex: 3
+  nex: 10
   N_pt: [600, 200, 200]
-  # accrual per day (about 240 per year)
-  recruit_rate: 0.658
-  # days fu to endpoint
+  
+  # accrual per day (about 270 per year)
+  pt_per_day: 0.75
+  ramp_up_days: 90
+  
+  # days fu to endpoint (deterministic)
   fu_days: 365
+  fu_lab: "12 months"
+  
   # 60% in alice = 1, darwin = 2
   reg_alloc: 0.60
   # 45% remote = 2, urban = 1 for alice 
@@ -18,15 +23,15 @@ default:
   
   # model parameters
   # reference logodds from which all others deviate
-  bmu: 0.1 
+  b_0: 0.1 
   # effect of being in darwin relative to alice
-  breg: [0, -0.03] 
+  b_reg: [0, -0.03] 
   # effect of being remote relative to urban
   # assume the effect of remoteness is the same irrespective of whether 
   # you are in alice or darwin
-  bloc: [0, 0.02] 
+  b_loc: [0, 0.02] 
   # intervention
-  btrt: [0,   0.01] 
+  b_trt: [0,   0.01] 
   
   # priors - beta-binomial uniform prior
   pri_p: [1.9, 9] 

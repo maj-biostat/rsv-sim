@@ -8,32 +8,17 @@ get_sim01_trial_data <- function(
     l_spec
 ){
   
-  if(is.null(l_spec$ia)){
-    ia <- 1
-  } else {
-    ia <- l_spec$ia
-  }
-  if(is.null(l_spec$is)){
-    is <- 1
-  } else {
-    is <- l_spec$is
-  }
-  if(is.null(l_spec$ie)){
-    ie <- 1
-  } else {
-    ie <- l_spec$ie
-  }
-  if(is.null(l_spec$t0)){
-    t0 <- 1
-  } else {
-    t0 <- l_spec$t0
-  }
+  if(is.null(l_spec$ic)){ ic <- 1 } else { ic <- l_spec$ic }
+  if(is.null(l_spec$is)){ is <- 1 } else { is <- l_spec$is }
+  if(is.null(l_spec$ie)){ ie <- 1 } else { ie <- l_spec$ie }
+  if(is.null(l_spec$t0)){ t0 <- 1 } else { t0 <- l_spec$t0 }
+  if(is.null(l_spec$tfu)){ tfu <- 1 } else { tfu <- l_spec$tfu }
   
   d <- data.table(
-    ia = ia,
+    ic = ic,
     id = is:ie,
     t0 = t0,
-    reg = rbinom(l_spec$N[ia], 1, prob = l_spec$p_reg_alloc) + 1
+    reg = rbinom(l_spec$N[ic], 1, prob = l_spec$p_reg_alloc) + 1
   )
   d[reg == 1, loc := rbinom(.N, 1, prob = l_spec$p_loc_alloc_a) + 1]
   d[reg == 2, loc := rbinom(.N, 1, prob = l_spec$p_loc_alloc_d) + 1]
@@ -47,12 +32,14 @@ get_sim01_trial_data <- function(
   # darwin, remote
   d[reg == 2 & loc == 2, trt := sample(rep(1:2, length = .N), size = .N, replace = F)]
   
+  d[, ia := NA_integer_]
+  d[, t_anlys := NA_real_]
   
   # Given the simplicity of the model we can specify the linear predictor 
   # directly in terms of risk increments.
   
-  d[, ty := t0 + l_spec$fu_days]
-  d[, p := l_spec$bmu + l_spec$breg[reg] + l_spec$bloc[loc] + l_spec$btrt[trt]]
+  d[, tfu := tfu]
+  d[, p := l_spec$b_0 + l_spec$b_reg[reg] + l_spec$b_loc[loc] + l_spec$b_trt[trt]]
   d[, y := rbinom(.N, 1, p)]
   
   d

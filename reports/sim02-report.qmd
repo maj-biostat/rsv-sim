@@ -9,7 +9,7 @@ author:
   - name: Mark Jones
     id: mj
     email: mark.jones1@sydney.edu.au
-version: 0.2
+version: 0.3
 sponsor: University of Newcastle, NSW, Australia
 protocol-number: Version 1.1  01AUG2024
 registration: todo
@@ -60,6 +60,7 @@ suppressPackageStartupMessages(library(qs))
 suppressPackageStartupMessages(library(git2r))
 suppressPackageStartupMessages(suppressWarnings(library(gt)))
 suppressPackageStartupMessages(library(ggh4x))
+suppressPackageStartupMessages(library(ggpubr))
 suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(scales))
 suppressPackageStartupMessages(library(katex))
@@ -86,7 +87,7 @@ source(paste0(prefix_r, "/data.R"))
 
 # Reference design
 
-sim_lab <- "sim00-02"
+sim_lab <- "sim00-03"
 
 flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim00")
 toks <- list()
@@ -127,7 +128,7 @@ N_sims <- l[[1]]$cfg$nsim
 |:----|:------------|
 |Study title:  |  Territory Health Respiratory Infection Vaccine Evaluation (THRIVE) |
 |Intervention: |  Single IM dose of 50mg in 0.5mL nirsevimab (100mg for infants > 5kg), or standard care. |   
-|Outcome: |  Any occurrence of medically attended RSV-LRI (RSV-LRI) in the 6 months after randomisation |   
+|Outcome: |  Any occurrence of medically attended RSV-LRI (RSV-LRI) in the 12 months after randomisation |   
 |Study design:  |   Bayesian adaptive trial with early stopping rules | 
 |Sponsor:  |    todo | 
 Protocol: |  todo |
@@ -154,7 +155,8 @@ cannot be bothered to implement it in anything else at the moment).
 | 0.1 | 2025-06-27 | First version |
 | 0.2 | 2025-06-27 | Revise interim to start at 600 |
 |     |            | Introduce enrolment times to look at trial duration |
-
+| 0.3 | 2025-09-10 | Update accrual process, vary enrol rate, refactor ref design |
+|     |            | Added example data for outcomes, example trials |
 
 {{< pagebreak >}}
 
@@ -162,31 +164,36 @@ cannot be bothered to implement it in anything else at the moment).
 
 # Introduction
 
-This report documents the methods and results from the simulation study for THRIVE.
-The report is an operational document that will be updated, as necessary, over the course of the study.
-It should be read in conjunction with the relevant version of the statistical analysis plan.
+This report documents the simulation methods and design operating characteristics for the THRIVE study.
+It should be read in conjunction with the relevant version of the statistical analysis plan and viewed as an operational document that may be subject to change over the course of the study.
 
-Included are details on the data generation assumptions, modelling, scenarios considered and the results.
+Included are the data generation assumptions, modelling, simulation scenarios and the results.
 
-The results are based on simulation ID ``r sim_lab`` which had ``r N_sims`` simulated trials per scenario.
+The results are based on simulation ID `r sim_lab` which had `r N_sims` simulated trials per scenario.
  
-# Study overview
+# Design overview
 
 THRIVE is a pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
+
+Participants enter the study when the infant is 6 months (+90 days^[Possibly excessively large window that would necessitate some deeper consideration for age in our modeling.]) and are randomised (1:1) to standard of care versus a single dose of nirsevimab (active).
+At `r l[[1]]$cfg$fu_lab` (`r l[[1]]$cfg$fu_days` days), the NT Notifiable Disease System medical records are searched for instances where laboratory-confirmed RSV (the primary outcome) was reported for the study participants.
+
+The design includes adaptation that permits early stopping for superiority or futility.
+Given their are only two arms involved, early stopping will result in enrolment being suspended.
 
 # Data generation
 
 Data is generated based on subject matter expertise and while necessarily a simplification of reality, it aims to capture the aspects that are essential to the design.
 The distributional assumptions of each data component follows.
 
-Accrual is based on a homogenous Poisson process for interarrival times (approx 20 enrolments per month).
-This is a simplication, as accrual is likely to ramp up slowly and be seasonal.
+Accrual is based on a non-homogenous Poisson process for inter-arrival times with a `r l[[1]]$cfg$ramp_up_days` day ramp up to `r l[[1]]$cfg$pt_per_day` enrolments per day (approx `r floor(365 * l[[1]]$cfg$pt_per_day)` per year).
+This is a simplication, as accrual is likely to be seasonal.
 
 We simulate design variables for region, locality and treatment assignment.
 
-Regional allocation is based on a multinomial distribution with two levels with the probability of residing in Alice^[Used as the reference level in the linear predictor.] set to 0.6.
-Conditional on regional allocation, locality^[Urban is reference in linear predictor vs remote] is simulated based on a multinomial distribution with two levels.
-The probability of remote status given residence in Alice is set to 0.45 and the probability of remote status given residence in Darwin is set to 0.65.
+Region is based on a multinomial distribution with two levels with the probability of residing in Alice^[Used as the reference level in the linear predictor.] set to 0.6.
+Conditional on region, locality^[Urban is reference in linear predictor vs remote] is simulated based on a multinomial distribution with two levels.
+The probability of being located in a remote area given residence in Alice is set to 0.45 and the probability of being located in a remote area given residence in Darwin is set to 0.65.
 These values were selected arbitrarily and as a summary we have:
 
 + $\text{Pr}(region = Alice) = 0.6$
@@ -198,11 +205,12 @@ These values were selected arbitrarily and as a summary we have:
 
 Within each region/locality combination intervention vs soc is allocated 1:1.
 
-Occurrence of medically attended RSV-LRI in the 12 months after randomisation is simulated as a bernoulli random variable for each participant with probability computed from a linear risk model.
+Occurrence of medically attended RSV-LRI in the `r l[[1]]$cfg$fu_lab` after randomisation is simulated as a bernoulli random variable for each participant with probability computed from a linear risk model.
 While it is possible that participants will have one or more occurrences of medically attended RSV-LRI in the 6 months after randomisation, the outcome variable simply reflects any occurrence versus none.
 
 No interactions are considered in any aspect of the data generating process.
-For example, in practice, there may be different distributions for the probability of RSV-LRI based on locality status within each region, i.e. the shift in the probability of RSV-LRI associated with remote vs urban may be different for Alice and Darwin, but this has been ignored for now and no interactions are included in the data generation nor model.
+For example, in practice, there may be different distributions for the probability of RSV-LRI based on locality status within each region, i.e. the shift in the probability of RSV-LRI associated with remote vs urban may be large in Alice but small in Darwin (or vice versa).
+However, the potential for such heterogeneity has been ignored for now.
 
 The participant characteristics and their outcome variables are generated at the start of each interim analysis so that the data accrues sequentially for the analyses.
 As the trial progresses, decisions may be made which lead to early stopping of treatment arms.
@@ -212,7 +220,7 @@ To speed up parameter estimation, we aggregate the number of successes and numbe
 
 # Modelling {#sec-modelling}
 
-While the data are simulated using a linear risk model, the simulation model is specified as a multivariable logistic regression model from which we subsequently transform the parameters back to the risk scale via the inverse link and then marginalise over the sample covariate distribution.
+While the data are simulated using a linear risk model, the simulation model is specified as a multivariable logistic regression model from which we subsequently transform the parameters back to the risk scale via the inverse link and then marginalise over the sample covariate (design) distribution.
 The model form is:
 
 $$
@@ -233,10 +241,10 @@ No interactions are considered.
 
 The model uses priors:
 
-+ $\alpha \sim \text{Logistic}(-1.8, 0.5)$
-+ $\beta_j \sim \text{Normal}(0, 1)$
-+ $\gamma_k \sim \text{Normal}(0, 1)$
-+ $\delta_l \sim \text{Normal}(0, 1)$
++ $\alpha \sim \text{Logistic}(`r l[[1]]$cfg$prior$b_0[1]`, `r l[[1]]$cfg$prior$b_0[2]`)$
++ $\beta_j \sim \text{Normal}(`r l[[1]]$cfg$prior$b_reg[1]`, `r l[[1]]$cfg$prior$b_reg[2]`)$
++ $\gamma_k \sim \text{Normal}(`r l[[1]]$cfg$prior$b_loc[1]`, `r l[[1]]$cfg$prior$b_loc[2]`)$
++ $\delta_l \sim \text{Normal}(`r l[[1]]$cfg$prior$b_trt[1]`, `r l[[1]]$cfg$prior$b_trt[2]`)$
 
 all of which are on the log-odds or log-odds ratio scale.
 
@@ -250,7 +258,7 @@ d_fig <- data.table(
 qq <- quantile(plogis(d_fig$x), prob = c(0.05, 0.95))
 ```
 
-Transformed to the probability scale, the intercept prior is shown in @fig-prior-intercept and reflects the prior probability of medically attended RSV-LRI in the 6 months after randomisation in the reference covariate groups.
+Transformed to the probability scale, the prior for the intercept is shown in @fig-prior-intercept and reflects the prior probability of medically attended RSV-LRI in the 6 months after randomisation in the reference covariate groups.
 The prior has 90% of the density between `r sprintf("%.2f", qq[1])` and `r sprintf("%.2f", qq[2])`.
 
 ```{r, echo = F, eval = T}
@@ -288,7 +296,7 @@ ggplot(d_fig, aes(x = plogis(x))) +
 ```
 
 In addition to the target adaptive design, results are provided under a fixed design that adopts a beta-binomial model and a single analysis at the maximum sample size.
-The weakly informative prior used for both treatment arms is shown in @fig-prior-prop, which is similar to that used in the model for the adaptive trial on the intercept term when transformed to the probability scale.
+The prior used for both treatment arms is shown in @fig-prior-prop, which is similar to that used in the model for the adaptive trial on the intercept term when transformed to the probability scale.
 
 ```{r, echo = F, eval = T}
 #| label: fig-prior-prop
@@ -299,7 +307,7 @@ The weakly informative prior used for both treatment arms is shown in @fig-prior
 
 
 d_fig <- data.table(
-  x = rbeta(1e6, unlist(l0[[1]]$cfg$pri_p)[1], unlist(l0[[1]]$cfg$pri_p)[2])
+  x = rbeta(1e6, unlist(l0[[1]]$cfg$prior$p)[1], unlist(l0[[1]]$cfg$prior$p)[2])
 )
 
 # d_fig <- data.table(
@@ -332,19 +340,23 @@ ggplot(d_fig, aes(x = x)) +
 ```
  
 The reference design uses the same rules, decision thresholds and evidential values as the adaptive design.
-Specifically, we evaluate the posterior distribution for the risk difference across groups for superiority and futility (lack of efficacy) based on the definitions in @sec-decision-procedures.
+As such, we are fixing the evidential requirements of the study rather than focusing equivalent long-run errors.
 
 # Decision procedures {#sec-decision-procedures}
 
-The decision processes are based on the data accumulated up to the current time and are thus interpreted with reference to the current available evidence.
-The approach is simple and offers a transparent interpretation, but it ignores the possibility that subsequent data may shift the posterior.
+The decision processes are based on the analyses that are informed by the participants that have reached their primary endpoint at the time of the interim.
+Thus, the decisions are interpreted with reference to the current available evidence.
+This approach has the appeal of simplicity and has a transparent interpretation, but it ignores the possibility that subsequent data may shift the posterior.
+If no decisions are made in the interim analyses, the final analysis occurs when the maximum sample size is reached and all participants have reached their primary endpoint.
 
-If the treatment strategy is successful, then the probability of medically attended RSV-LRI in the 12 months after randomisation will be lower in the treatment arm than it will under standard of care, which leads to negative risk difference values.
+If the treatment strategy is successful, then the probability of medically attended RSV-LRI in the `r l[[1]]$cfg$fu_lab` after randomisation will be lower in the treatment arm than it will under standard of care, which would lead to negative values for the risk difference for the treatment effect.
 
 In the current design, superiority and futility rules are implemented for early stopping.
-Superiority is framed as a high probability that the risk difference is negative, whereas futility is framed as a low probability that the risk difference is below some small negative reference value.
-If a decision threshold is met, then we will stop recruitment into the relevant arm.
-This approach is adopted for each interim and the final analysis.
+
++ Superiority: high probability that the risk difference is negative.
++ Futility: low probability that the risk difference is below some small negative reference value.
+
+If a decision threshold is met, then we will stop recruitment into the relevant arm.  
 
 The decisions are constructed as a static rule of the form $\text{Pr}(RD < \epsilon | y) > \zeta$ where $\epsilon$ and $\zeta$ are pre-specified values corresponding to a clinical meaningful difference and an evidentiary requirement in terms of probability. 
 The decision thresholds and evidential thresholds are shown in @tbl-dec-thresholds.
@@ -397,13 +409,14 @@ gt_tbl <- gt(d_dec_pars) |>
 gt_tbl
 ```
 
-So, if there is more than `r l[[1]]$cfg$thresh$sup` of the posterior density for the risk difference above `r l[[1]]$cfg$delta$sup` we declare superiority.
-If there is less than `r l[[1]]$cfg$thresh$fut` of the posterior density for the risk difference below `r l[[1]]$cfg$delta$fut` we declare futility.
+So, for concreteness, if the posterior for the treatment effect has more than `r 100*l[[1]]$cfg$thresh$sup`% of its density below `r l[[1]]$cfg$delta$sup`, then we would declare superiority.
+Conversely, if the posterior for the treatment effect has less than `r 100*l[[1]]$cfg$thresh$fut`% of its density below `r l[[1]]$cfg$delta$fut`, then we would declare futility.
+Modifying these decision thresholds will result in differing operating characteristics for the trial.
 
 # Scenarios
 
-Each scenario adopts a maximum sample size of 1000 with interim analyses run after 600 enrolments have reached their primary endpoint and every 200 thereafter.
-Given the use of a linear risk model in the data generation process, the treatment effects are specified as risk differences.
+Each scenario adopts a maximum sample size of 1000 with interim analyses run after 600 and 800 enrolments have occurred, with only those that have reached their primary endpoint entering into the analyses.
+As a linear risk model in the data generation process, the treatment effects are specified as risk differences.
 
 ```{r, echo = F, eval = T}
 #| label: scenario_list
@@ -474,7 +487,7 @@ gt_tbl
 ```
 
 
-@tbl-scenarios shows the scenarios evaluated within these simulations and @fig-strata-risk provides a visual summary of the probability of medically attended RSV-LRI in the 12 months after randomisation in each strata for the simulations.
+@tbl-scenarios shows the scenarios evaluated within these simulations and @fig-strata-risk provides a visual summary of the probability of medically attended RSV-LRI in the `r l[[1]]$cfg$fu_lab` after randomisation in each strata for the simulations.
 All scenarios used fixed covariate distributions and effects over the duration of the study. 
 Additionally, the same reference values and decision thresholds were used in all simulations.
 
@@ -540,7 +553,7 @@ for(i in 1:length(l)){
 
 
 d_fig <- copy(d_grid_all)
-d_fig[, trt := factor(trt, levels = 1:2, labels = c("Soc", "Trt"))]
+d_fig[, trt := factor(trt, levels = 1:2, labels = c("SoC", "Active"))]
 # d_tbl_1_cur <- dcast(d_tbl_1_cur, id + desc ~ reg + loc + trt, value.var = "p")
 
 d_fig[, desc := sprintf("%s (RD = %.3f)", desc, rd_trt)]
@@ -596,6 +609,7 @@ ggplot(d_fig, aes(x = trt, y = p)) +
 
 
 # events per day
+ii <- 1
 lambda <- l[[1]]$cfg$pt_per_day
 # ramp up over x months 
 rho <- function(t) pmin(t/l[[1]]$cfg$ramp_up_days, 1)
@@ -606,6 +620,7 @@ d_acc_all <- rbindlist(pblapply(1:100, cl = 4, FUN=function(ii){
   data.table(ii, id = 1:sum(l[[1]]$cfg$N), t0, tfu)
 }))
 
+# trying to formulate the average for each enrolment number (id)
 d_acc_t <- d_acc_all[, .(t0 = mean(t0), tfu = mean(tfu)), keyby = id]
 d_fig_1 <- melt(d_acc_t, id.vars = "id")
 
@@ -615,13 +630,28 @@ d_fig_1[, variable := factor(
   labels = c("Entry", "Followup"))]
 # 
 N <- cumsum(l[[1]]$cfg$N)[-length(l[[1]]$cfg$N)]
+
+# average duration of enrolment
+t0_mu <- d_acc_all[, .(t0_max = max(t0)), by = ii][, round(mean(t0_max/365), 2)]
+t0_sd <- d_acc_all[, .(t0_max = max(t0)), by = ii][, round(sd(t0_max/365), 2)]
+
+# average duration of followup
+tfu_mu <- d_acc_all[, .(tfu_max = max(tfu)), by = ii][, round(mean(tfu_max/365), 2)]
+tfu_sd <- d_acc_all[, .(tfu_max = max(tfu)), by = ii][, round(sd(tfu_max/365), 2)]
+
+# latest enrolment by simulated dataset
+t0_q1 <- d_acc_all[, .(t0_max = max(t0)), by = ii][, round(quantile(t0_max/365, prob = 0.25), 2)]
+t0_q3 <- d_acc_all[, .(t0_max = max(t0)), by = ii][, round(quantile(t0_max/365, prob = 0.75), 2)]
 ```
 
-Accrual is assumed to follow a non-homogenous poisson process with ramping up over `r l[[1]]$cfg$ramp_up_days`  days with around `r l[[1]]$cfg$pt_per_day` enrolments per day (around `r round(365 * l[[1]]$cfg$pt_per_day)` per year).
-Follow up is assumed to be deterministically set at `r l[[1]]$cfg$fu_days` days.
+Accrual is assumed to follow a non-homogenous poisson process, ramping up over `r l[[1]]$cfg$ramp_up_days` days to around `r l[[1]]$cfg$pt_per_day` enrolments per day (approx `r round(365 * l[[1]]$cfg$pt_per_day)` per year).
+Followup is assumed to be deterministic and fixed at `r l[[1]]$cfg$fu_days` days.
 
-Assuming no early stopping, the trial enrolment period is expected to be `r round(max(d_acc_t$t0)/365, 2)` years with follow up completed by `r round(max(d_acc_t$tfu)/365, 2)` years.
-The first and third quartiles of the enrolment period are `r d_acc_all[, .(t0_max = max(t0)), by = ii][, round(quantile(t0_max/365, prob = 0.25), 2)]` years and `r d_acc_all[, .(t0_max = max(t0)), by = ii][, round(quantile(t0_max/365, prob = 0.75), 2)]` years.
+Assuming no decision rules are triggered and enrolment progresses to the maximum sample size with the initial balanced treatment allocation, @fig-accrual shows the average accrual and followup times for study participants.
+All scenarios use the same accrual and followup time. 
+With no early stopping, the trial enrolment period is expected to be approximately `r paste0(t0_mu, " (SD ", t0_sd, ")")` years with follow up completed by `r paste0(tfu_mu, " (SD ", tfu_sd, ")")` years.
+The first and third quartiles of the enrolment period are `r t0_q1` years and `r t0_q3` years.
+
 
 ```{r, echo = F, eval = T}
 #| label: fig-accrual
@@ -646,6 +676,9 @@ d_fig_2 <- data.table(
   yend = d_tmp$N
 )
 
+
+
+
 ggplot(d_fig_1, aes(x = value, y = id, 
                     group = variable, 
                     col = variable)) +
@@ -661,6 +694,13 @@ ggplot(d_fig_1, aes(x = value, y = id,
     lineend = "round",
     linejoin = "mitre",
     inherit.aes = F, lty = 2, lwd = 0.3) +
+  ggpubr::geom_bracket(
+    xmin = d_fig_1[variable == "Entry", max(value)], 
+    xmax = d_fig_1[variable == "Followup", max(value)], 
+    y.position = max(d_fig_1$id) + 10,
+    label = paste0("~", l[[1]]$cfg$fu_days, " days"), 
+    tip.length = c(0.005, 0.005), inherit.aes = F
+  ) +
   scale_x_continuous("Study day",
                      breaks = seq(0, max(d_acc_t$tfu), by = 180)) +
   scale_y_continuous("Cumulative enrolments",
@@ -752,24 +792,24 @@ d_marsvlri_1[, desc := factor(desc, levels = unique(d_marsvlri_1$desc))]
 d_marsvlri_2[, desc := factor(desc, levels = unique(d_marsvlri_2$desc))]
 ```
 
-@fig-cfail shows the number of treatment failures by strata and overall from a single simulation from each scenario.
-@fig-cfail-prop is the equivalent plot but showing the cumulative proportion of failures.
+To give a sense of the data that may be observed under the assumptions we have made, @fig-cfail shows the number of treatment failures by strata and overall from a single arbitrarily selected simulation from each scenario.
+@fig-cfail-prop is an equivalent plot, but showing the cumulative proportion of failures.
 
 ```{r, echo = F, eval = T}
 #| label: fig-cfail
 #| fig-cap: 'Cumulative failures by scenario, strata and treatment group from single simulation (overall shown in RHS panel)'
 #| fig-height: 8
-#| fig-width: 8
+#| fig-width: 8.5
 #| fig-pos: H
 
 
 d_fig_1 <- copy(d_marsvlri_1)
-d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("Placebo", "Active"))]
+d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("SoC", "Active"))]
 d_fig_1[, desc := paste(desc, " ( RD ", rd_trt, ")")]
 d_fig_1[, desc := factor(desc, levels = unique(d_fig_1$desc))]
 
 p1 <- ggplot(data = d_fig_1, aes(x = tfu, y = c_y, group = trt, col = trt)) +
-  geom_step(lwd = 0.4) +
+  geom_step(lwd = 0.6) +
   scale_color_discrete("") +
   scale_x_continuous("Study day") +
   scale_y_continuous("") +
@@ -786,7 +826,11 @@ p1 <- ggplot(data = d_fig_1, aes(x = tfu, y = c_y, group = trt, col = trt)) +
     strip.text.y.right = element_text(angle = 0,
                                       hjust = 0,
                                       vjust = 0.2,
-                                      size = 7)
+                                      size = 7),
+    axis.title.y=element_text(size = 7),
+    axis.text.y = element_text(size = 7), 
+    axis.text.x = element_text(size = 7), 
+    axis.title.x = element_text(size = 7)
   ) +
   guides(
     colour = guide_legend(nrow = 1),
@@ -798,12 +842,12 @@ d_fig_1 <- copy(d_marsvlri_2)
 d_fig_1[, reg := factor(reg, levels = 1:2, labels = c("Alice", "Darwin"))]
 d_fig_1[, loc := factor(loc, levels = 1:2, labels = c("Urban", "Remote"))]
 d_fig_1[, strata := paste0(reg, " (", loc, ")")]
-d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("Placebo", "Active"))]
+d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("SoC", "Active"))]
 d_fig_1[, desc := paste(desc, " ( RD ", rd_trt, ")")]
 d_fig_1[, desc := factor(desc, levels = unique(d_fig_1$desc))]
 
 p2 <- ggplot(data = d_fig_1, aes(x = tfu, y = c_y, group = trt, col = trt)) +
-  geom_step(lwd = 0.4) +
+  geom_step(lwd = 0.6) +
   scale_color_discrete("") +
   scale_x_continuous("Study day") +
   scale_y_continuous("Cumulative failures") +
@@ -816,7 +860,11 @@ p2 <- ggplot(data = d_fig_1, aes(x = tfu, y = c_y, group = trt, col = trt)) +
     # legends for decision type and trt on different rows
     legend.box="vertical",
     legend.title = element_text(size = 8) ,
-    strip.text.y.right = element_blank()
+    strip.text.y.right = element_blank(),
+    axis.title.y=element_text(size = 7),
+    axis.text.y = element_text(size = 7), 
+    axis.text.x = element_text(size = 7), 
+    axis.title.x = element_text(size = 7)
   ) +
   guides(
     colour = guide_legend(nrow = 1),
@@ -834,17 +882,17 @@ p2 + p1 +
 #| label: fig-cfail-prop
 #| fig-cap: 'Cumulative proportion of failures by scenario, strata and treatment group from single simulation (overall shown in RHS panel)'
 #| fig-height: 8
-#| fig-width: 8
+#| fig-width: 8.5
 #| fig-pos: H
 
 
 d_fig_1 <- copy(d_marsvlri_1)
-d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("Placebo", "Active"))]
+d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("SoC", "Active"))]
 d_fig_1[, desc := paste(desc, " ( RD ", rd_trt, ")")]
 d_fig_1[, desc := factor(desc, levels = unique(d_fig_1$desc))]
 
 p1 <- ggplot(data = d_fig_1, aes(x = tfu, y = p_obs, group = trt, col = trt)) +
-  geom_step(lwd = 0.4) +
+  geom_step(lwd = 0.6) +
   scale_color_discrete("") +
   scale_x_continuous("Study day") +
   scale_y_continuous("", breaks = seq(0, 1, by = 0.2)) +
@@ -872,12 +920,12 @@ d_fig_1 <- copy(d_marsvlri_2)
 d_fig_1[, reg := factor(reg, levels = 1:2, labels = c("Alice", "Darwin"))]
 d_fig_1[, loc := factor(loc, levels = 1:2, labels = c("Urban", "Remote"))]
 d_fig_1[, strata := paste0(reg, " (", loc, ")")]
-d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("Placebo", "Active"))]
+d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("SoC", "Active"))]
 d_fig_1[, desc := paste(desc, " ( RD ", rd_trt, ")")]
 d_fig_1[, desc := factor(desc, levels = unique(d_fig_1$desc))]
 
 p2 <- ggplot(data = d_fig_1, aes(x = tfu, y = p_obs, group = trt, col = trt)) +
-  geom_step(lwd = 0.4) +
+  geom_step(lwd = 0.6) +
   scale_color_discrete("") +
   scale_x_continuous("Study day") +
   scale_y_continuous("Proportion of failures", breaks = seq(0, 1, by = 0.2)) +
@@ -950,12 +998,14 @@ example_accrual <- function(l_ex, id_scen = 1){
   
   N <- cumsum(l[[id_scen]]$cfg$N)[-length(l[[id_scen]]$cfg$N)]
   d_tmp <- l_ex$d_all_ex[N, .(id = .I, analysis_time = t0)]
-  d_tmp <- d_tmp[
-    , .(N = l_ex$d_all_ex[tfu <= analysis_time, .N]), 
-    by = .(id, analysis_time)]
+  d_tmp <- d_tmp[!is.na(analysis_time)]
+  d_tmp <- d_tmp[, .(N = l_ex$d_all_ex[tfu <= analysis_time, .N]), 
+                 by = .(id, analysis_time)]
+  
+  N <- N[1:nrow(d_tmp)]
   
   d_fig_3 <- data.table(
-    x = rep(0, length(l[[id_scen]]$cfg$N)-1),
+    x = rep(0, length(N)),
     y = N ,
     xend = l_ex$d_all_ex[id %in% N, t0],
     yend = d_tmp$N
@@ -1036,6 +1086,7 @@ example_analysis_sets <- function(l_ex, id_scen = 1){
   # setnames(d_fig_1, c("0", "1"), c("N_obs", "N_mis"))
   # d_fig_1[, N_tot := N_obs + N_mis]
   d_fig_1[, N_obs_c := cumsum(N), keyby = .(trt)]
+  d_fig_1[, trt := factor(trt, levels = 1:2, labels = c("SoC", "Active"))]
   
   d_fig_2 <- d_fig_1[!is.na(ia), .(N = sum(N)), keyby = .(ia, trt)]
   d_fig_2[, N_c := cumsum(N), keyby = .(trt)]
@@ -1043,6 +1094,7 @@ example_analysis_sets <- function(l_ex, id_scen = 1){
     ia = factor(ia),
     trt = factor(trt)
   )]
+  
   
   p <- ggplot(d_fig_2, 
          aes(x = trt, y = N_c)) +
@@ -1162,25 +1214,36 @@ example_posterior_inf <- function(l_ex, id_scen = 1){
   # Posterior inference
 
   d_fig_1 <- copy(l_ex$d_post_smry_ex[par %in% c("p_1", "p_2")])
-  d_fig_1[, par := factor(par, levels = c("p_1", "p_2"), labels = c("PBO", "Active"))]
+  d_fig_1[, par := factor(par, levels = c("p_1", "p_2"), labels = c("SoC", "Active"))]
   
   d_fig_2 <- copy(l_ex$d_post_smry_ex[par %in% c("rd_2_1")])
   d_fig_2[, par := factor(par, levels = c("rd_2_1"), 
-                          labels = c("Active vs PBO"))]
+                          labels = c("Active vs SoC"))]
   
   d_fig_3 <- copy(l_ex$d_pr_dec_ex[par %in% c("rd_2_1")])
   d_fig_3[, par := factor(par, levels = c("rd_2_1"), 
-                          labels = c("Active vs PBO"))]
+                          labels = c("Active vs SoC"))]
   d_fig_3[rule == "fut" & dec == 1, col := "Futile"]
   d_fig_3[rule == "sup" & dec == 1, col := "Superior"]
   d_fig_3[dec == 0, col := "No decision"]
   d_fig_3[, col := factor(col, levels = c("No decision", "Superior", "Futile"))]
   d_fig_3[is.na(col), col := ""]
   
+  # annotations
+  d_fig_4 <- data.table(
+    rule = rep(c("fut", "sup"), each = 3)
+  )
+  d_fig_4[rule == "fut", `:=`(lwr = 0, upr = l[[id_scen]]$cfg$thresh$fut)]
+  d_fig_4[rule == "sup", `:=`(lwr = l[[id_scen]]$cfg$thresh$sup, upr = 1)]
+  d_fig_4[, `:=`(xmin = 0.5, xmax = 1.5)]
+  d_fig_4[rule == "fut", col := "Futile"]
+  d_fig_4[rule == "sup", col := "Superior"]
+  d_fig_4[, col := factor(col, levels = c("No decision", "Superior", "Futile"))]
+  
   cols <- c("No decision" = "black", "Superior" = "green", "Futile" = "red")
   
   p1 <- ggplot(d_fig_1, aes(x = par, y = mu)) +
-    geom_linerange(aes(ymin = q_025, ymax = q_975)) +
+    geom_linerange(aes(ymin = q_025, ymax = q_975), lwd = 1) +
     geom_point() +
     scale_x_discrete("Treatment arm") +
     scale_y_continuous("Posterior summary") +
@@ -1206,19 +1269,21 @@ example_posterior_inf <- function(l_ex, id_scen = 1){
       axis.text.y = element_text(size = 7), 
       axis.text.x = element_text(size = 7), 
       axis.title.x = element_text(size = 7),
-      legend.text = element_text(size = 7)
+      legend.text = element_text(size = 7),
+      plot.title = element_text(size = 10)
     ) +
     guides(
       colour = guide_legend(nrow = 1),
       linetype = guide_legend(nrow = 1)
-    )
+    ) +
+    ggtitle("Plot 1: Posterior summary for proportion with MA-RSV")
   
   p2 <- ggplot(d_fig_2, aes(x = par, y = mu)) +
     geom_hline(aes(yintercept =  sup_delta), lwd = 0.3, lty = 2, col = 1 ) +
     geom_hline(aes(yintercept =  fut_delta), lwd = 0.3, lty = 2, col = "red" ) +
-    geom_linerange(aes(ymin = q_025, ymax = q_975)) +
+    geom_linerange(aes(ymin = q_025, ymax = q_975), lwd = 1) +
     geom_point() +
-    scale_x_discrete("Comparisons") +
+    scale_x_discrete("") +
     scale_y_continuous("Posterior summary") +
     facet_wrap(~ic, labeller = label_both) +
     theme_minimal() +
@@ -1242,25 +1307,36 @@ example_posterior_inf <- function(l_ex, id_scen = 1){
       axis.text.y = element_text(size = 7), 
       axis.text.x = element_text(size = 7), 
       axis.title.x = element_text(size = 7),
-      legend.text = element_text(size = 7)
+      legend.text = element_text(size = 7),
+      plot.title = element_text(size = 10)
     ) +
     guides(
       colour = guide_legend(nrow = 1),
       linetype = guide_legend(nrow = 1)
-    )
+    ) +
+    ggtitle("Plot 2: Posterior summary for risk difference treatment effect")
+  
+  
   
   p3 <- ggplot(d_fig_3, aes(x = par)) +
-    geom_linerange(aes(ymin = 0, ymax = p, col = col)) +
+    geom_rect(
+      data = d_fig_4, 
+      aes(xmin = xmin, xmax = xmax, ymin = lwr, ymax = upr, fill = col),
+      alpha = 0.1,
+      inherit.aes = F
+    ) +
+    geom_linerange(aes(ymin = 0, ymax = p, col = col), lwd = 2) +
     scale_x_discrete("Comparisons") +
-    scale_y_continuous("Probability", breaks = seq(0, 1, by = 0.5)) +
+    scale_y_continuous("Probability", breaks = seq(0, 1, by = 0.2)) +
     scale_color_manual("", values = cols) +
+    scale_fill_manual(guide = "none",     values = cols) +
     facet_grid(rule~ic, labeller = label_both) +
     theme_minimal() +
     theme(
       legend.position = "bottom",
       # this and the guide call below ensures that you get
       # legends for decision type and trt on different rows
-      legend.box="vertical",
+      legend.box="horizontal",
       legend.title = element_text(size = 8) ,
       strip.text.y.right = element_text(angle = 0,
                                         hjust = 0,
@@ -1276,18 +1352,42 @@ example_posterior_inf <- function(l_ex, id_scen = 1){
       axis.text.y = element_text(size = 7), 
       axis.text.x = element_text(size = 7), 
       axis.title.x = element_text(size = 7),
-      legend.text = element_text(size = 7)
+      legend.text = element_text(size = 7),
+      plot.title = element_text(size = 10)
     ) +
     guides(
       colour = guide_legend(nrow = 1),
       linetype = guide_legend(nrow = 1)
-    )
+    ) +
+    ggtitle("Plot 3: Posterior probability of superiority/futility")
   
   
   return(list(p1 = p1, p2 = p2, p3 = p3))
 }
 ```
 
+
+The example trials provide the study results from a randomly selected simulated trial from three arbitrary scenarios. 
+The scenarios are purposely not detailed so that the results can be discussed without the cognitive bias associated with expected results.
+The scenarios can be revealed after the results have been discussed.
+
+Each example provides a series of plots.
+The first set of plots provide information on accrual, analysis sets and parameter estimates.
+The accrual panel reflects the enrolment that was observed for the simulated trial. 
+As noted earlier, enrolment is assumed to follow a non-homogeneous poisson process with a ramp up period.
+The analysis set panel shows the sample size of the data entering into the analyses at each interim.
+The analysis sets will be smaller than the enrolment cohorts because only a subset of the cohort will have reached the `r l[[1]]$cfg$fu_lab` endpoint at the time of the analysis.
+The parameter estimates panel provides Bayesian posterior summaries and Frequentist point estimates and confidence intervals.
+These were derived from analogous model specifications and give a sense of the differences between the two approaches.
+
+The second set of plots provide information on the posterior at each analysis.
+The first panel shows the posterior estimate for the proportion of participants having MA-RSV by treatment group and analysis.
+The second panel shows the risk difference characterising the difference between the treatment and control group.
+The third panel shows the posterior probability of futility (upper panel) and superiority (lower panel).
+If the active treatment arm is deemed futile, the upper line range will be coloured red and sit within the red shade futility range.
+If the active treatment arm is deemed superior, the lower line range will be coloured green and reach up into the green shade superiority range.
+
+{{< pagebreak >}}
 
 ### Example 1
 
@@ -1296,7 +1396,7 @@ example_posterior_inf <- function(l_ex, id_scen = 1){
 #| code-summary: 'Example trial 1 trial data'
 
 id_scen = 1
-id_ex <- l[[id_scen]]$cfg$ex_trial_ix[1]
+id_ex <- l[[id_scen]]$cfg$ex_trial_ix[2]
 l_ex <- example_data(id_ex, id_scen)
 # str(l_ex)
 ```
@@ -1335,8 +1435,18 @@ suppressWarnings(print(p1 + p2 + p3 +
 #| fig-width: 7
 #| fig-pos: H
 
+layout <- "
+A
+B
+C
+C
+"
+
 l_p <- example_posterior_inf(l_ex, id_scen)
-suppressWarnings(print(l_p$p1 / l_p$p2 / l_p$p3))
+suppressWarnings(
+  print(
+    l_p$p1 + l_p$p2 + l_p$p3 + plot_layout(design = layout))
+  )
 ```
 
 ### Example 2
@@ -1385,8 +1495,18 @@ suppressWarnings(print(p1 + p2 + p3 +
 #| fig-width: 7
 #| fig-pos: H
 
+layout <- "
+A
+B
+C
+C
+"
+
 l_p <- example_posterior_inf(l_ex, id_scen)
-suppressWarnings(print(l_p$p1 / l_p$p2 / l_p$p3))
+suppressWarnings(
+  print(
+    l_p$p1 + l_p$p2 + l_p$p3 + plot_layout(design = layout))
+  )
 ```
 
 
@@ -1436,8 +1556,18 @@ suppressWarnings(print(p1 + p2 + p3 +
 #| fig-width: 7
 #| fig-pos: H
 
+layout <- "
+A
+B
+C
+C
+"
+
 l_p <- example_posterior_inf(l_ex, id_scen)
-suppressWarnings(print(l_p$p1 / l_p$p2 / l_p$p3))
+suppressWarnings(
+  print(
+    l_p$p1 + l_p$p2 + l_p$p3 + plot_layout(design = layout))
+  )
 ```
 
 
@@ -1509,7 +1639,7 @@ for(i in 1:length(l)){
   # config for scenario
   l0_cfg <- copy(l0[[i]]$cfg)
   
-  d_dec_1[, N := sum(l0_cfg$N_pt)]
+  d_dec_1[, N := sum(l0_cfg$N)]
   
   # cumulative proportion for which each decision quantity has been met by 
   # analysis and domain
@@ -1636,8 +1766,8 @@ d_fig_1[, desc := factor(
   desc, 
   levels = c(
     "Null scenario", 
-    "Treatment reduces chance of RSV-LRI",
-    "Treatment increases chance of RSV-LRI"
+    "Treatment reduces RSV-LRI attendances",
+    "Treatment increases RSV-LRI attendances"
     )
 )]
 
@@ -1696,18 +1826,27 @@ for(i in 1:length(l)){
   # config for scenario
   l0_cfg <- copy(l0[[i]]$cfg)
   
+  # compute max fu time by sim
+  d_tmp <- d_all[, .(tfu_max = max(tfu/365)), by = sim]
+  # average over sims
   d_fu_ref <- rbind(
     d_fu_ref, 
     data.table(
-      id = i, desc = l0_cfg$desc, fu_mu_ref = mean(d_all$ty/365)
+      id = i, desc = l0_cfg$desc, 
+      fu_mu_ref = mean(d_tmp$tfu_max), fu_sd_ref = sd(d_tmp$tfu_max)
     ))
   
+  # for the adaptive trial, we would stop at the analysis at which the 
+  # decision was triggered so we consider ia (the analysis sets) rather than
+  # ic (the enrolment cohort)
   d_all <- copy(l[[i]]$d_all)
+  d_tmp <- d_all[!is.na(ia), .(tfu_max = max(tfu/365, na.rm = T)), by = sim]
   
   # pick  out the last interim by sim and then compute the average across the
   # region and locality strata
-  d_last <- d_all[d_all[, .I[ic == max(ic)], by = sim]$V1, .(tfu = mean(tfu/365)), keyby = sim]
-  
+  # d_last <- d_all[
+  #   d_all[, .I[ic == max(ic)], by = sim]$V1, .(tfu = mean(tfu/365)), keyby = sim]
+   
   
   # config for scenario
   l_cfg <- copy(l[[i]]$cfg)
@@ -1717,7 +1856,7 @@ for(i in 1:length(l)){
     data.table(
       id = i, desc = l_cfg$desc, 
       rd_trt = l_cfg$b_trt[2] - l_cfg$b_trt[1],
-      fu_mu = mean(d_last$tfu), fu_sd = sd(d_last$tfu)
+      fu_mu = mean(d_tmp$tfu), fu_sd = sd(d_tmp$tfu)
     ))
   
 }
@@ -1727,14 +1866,15 @@ d_fu <- merge(
 )
 ```
 
-For the fixed design, the final enrolment is expected to reach the 12 month followup at `r sprintf("%.1f", d_fu_ref[, mean(fu_mu_ref)])` years.
-For the adaptive trial, the 12 month followup for the final enrolment varies by scenario as shown in @tbl-trial-duration.
+For the fixed design, the final enrolment is expected to reach the `r l[[1]]$cfg$fu_lab` followup at `r sprintf("%.1f", d_fu_ref[, mean(fu_mu_ref)])` years.
+For the adaptive trial, the `r l[[1]]$cfg$fu_lab` followup for the final enrolment varies by scenario as shown in @tbl-trial-duration.
+In the adaptive trial, the times at which the study can stop are determined based on latest follow up time for the participants that enter the analyses.
 
 ```{r, eval = T}
 #| echo: FALSE
 #| label: tbl-trial-duration
 #| tbl-pos: H
-#| tbl-cap: "Duration of trial (adaptive trial shows mean and sd, fixed shows mean years)"
+#| tbl-cap: "Duration of trial in years (mean and sd)"
 
 d_tbl <- copy(d_fu)
 
@@ -1747,16 +1887,20 @@ gt_tbl <- gt(d_tbl[, .SD, .SDcols = !c("id")],
     columns = c("fu_mu", "fu_sd"),
     pattern = "<<{1}>><< ({2})>>"
   ) |>
+  cols_merge(
+    columns = c("fu_mu_ref", "fu_sd_ref"),
+    pattern = "<<{1}>><< ({2})>>"
+  ) |>
   fmt_number(
-    columns = c("fu_mu", "fu_sd", "fu_mu_ref"),
+    columns = c("fu_mu", "fu_sd", "fu_mu_ref", "fu_sd_ref"),
     decimals = 2, drop_trailing_zeros = TRUE)  |>
   cols_align(
     columns = c("rd_trt"),
     align = "left"
   ) |>
   tab_spanner(
-    label = md("Years for final enrolment to reach 12 months followup"),
-    columns = c("fu_mu", "fu_sd", "fu_mu_ref")
+    label = md("Years for final enrolment to reach followup"),
+    columns = c("fu_mu", "fu_sd", "fu_mu_ref", "fu_sd_ref")
     )|>
   cols_align(
     columns = c("fu_mu"),
@@ -1768,8 +1912,7 @@ gt_tbl <- gt(d_tbl[, .SD, .SDcols = !c("id")],
   ) |>
   cols_width(
     starts_with("rd_trt") ~ pct(30),
-    starts_with("fu_mu") ~ pct(30),
-    starts_with("fu_0") ~ pct(20)
+    starts_with("fu_mu") ~ pct(30)
   ) |>
   cols_label(
     desc = "Scenario",
@@ -1789,7 +1932,8 @@ gt_tbl
 
 ### Randomised comparisons
 
-@tbl-n-at-trigger shows the expected number of participants on each treatment for each decision type by scenarios.
+@tbl-n-at-trigger shows the expected number of participants **enrolled** onto each treatment for each decision type by scenarios.
+The duration of time to the end of follow up reflects the period of time to follow up the enrolled cohort, which is longer than the duration of follow up for the set of participants that actually enter into the analyses (the analysis set).
 
 ```{r, echo = F, eval = T}
 #| label: random_cmp_size
@@ -1817,7 +1961,7 @@ for(i in 1:length(l)){
   d_all <- copy(l[[i]]$d_all)
   
   # collapse the number of trials in each strata by sim, interim and trt arm
-  d_n_trt <- d_all[, .(N = sum(N)), keyby = .(sim, ic, trt)]
+  d_n_trt <- d_all[, .(N = .N), keyby = .(sim, ic, trt)]
   # obtain the cumulative sum of trials by sim and trt over interims
   d_n_trt[, N := cumsum(N), keyby = .(sim, trt)]
   
@@ -1927,7 +2071,7 @@ g_tbl <- d_tbl_1_cur |>
     decision = "Decision",
     pct = "Proportion of trials",
     tfu = "Expected years to last followup",
-    N_1 = "SOC", N_2 = "Trt"
+    N_1 = "SoC", N_2 = "Active"
   ) |>
   tab_options(
     table.width = pct(80),
@@ -1968,13 +2112,15 @@ g_tbl
 # our estimates is representative of the parameter values we used to simulate
 # the data.
 
-i <- 1
+i <- 5
 d_post_1 <- data.table()
 
 for(i in 1:length(l)){
   
   # config for scenario
   l_cfg <- copy(l[[i]]$cfg)
+  
+  # l[[i]]$cfg$desc
   
   b_trt <- unlist(l_cfg$b_trt)
   rd_trt <- b_trt[2] - b_trt[1]
@@ -1988,15 +2134,33 @@ for(i in 1:length(l)){
   # observed trial data sets
   # d_all <- copy(l[[i]]$d_all)
   
-  d_pars <- dcast(d_pars, sim + ic ~ par, value.var = c("mu", "se"))
+  d_pars <- dcast(d_pars, sim + ic ~ par, value.var = c("mu", "med", "se"))
+  
+  # plot(density(d_pars[!is.na(med_rd_2_1) & ic == 2, med_rd_2_1]))
+  # lines(density(d_pars[!is.na(mu_rd_2_1) & ic == 2, mu_rd_2_1]))
+  # 
+  # abline(v = (d_pars[!is.na(med_rd_2_1) & ic == 2, mean(med_rd_2_1)]))
+  # abline(v = rd_trt, col = 2)
+  # 
+  # d_pars[!is.na(mu_rd_2_1), .N, keyby = ic]
+  # d_pars[, mean(mu_rd_2_1, na.rm = T), keyby = ic]
+  # d_pars[!is.na(mu_rd_2_1), mean(mu_rd_2_1), keyby = ic]
+  # d_pars[!is.na(mu_rd_2_1) & ic == 3, ]
+  
+  # plot(density(d_pars[ic == 1, mu_rd_2_1]))
+  # plot(density(d_pars[ic == 2 & !is.na(mu_rd_2_1), mu_rd_2_1]))
   
   # locf
-  d_pars[, `:=`(
-    mu_rd_2_1 = nafill(mu_rd_2_1, type = "locf"),
-    se_rd_2_1 = nafill(se_rd_2_1, type = "locf")
-                ), 
-         keyby = .(sim)]
+  # d_pars[, `:=`(
+  #   mu_rd_2_1 = nafill(mu_rd_2_1, type = "locf"),
+  #   se_rd_2_1 = nafill(se_rd_2_1, type = "locf")
+  #               ), 
+  #        keyby = .(sim)]
   #
+  
+  
+  # TEMP
+  d_pars <- d_pars[!is.na(mu_rd_2_1)]
   
   d_pars <- base::merge(d_pars, d_N, by = "ic")
   
@@ -2023,13 +2187,13 @@ for(i in 1:length(l)){
   # config for scenario
   l0_cfg <- copy(l0[[i]]$cfg)
   
-  b_trt <- unlist(l0_cfg$btrt)
+  b_trt <- unlist(l0_cfg$b_trt)
   
   # params
   d_pars <- copy(l0[[i]]$d_post_smry_1)
   d_pars <- d_pars[par %in% c("rd_2_1"), .(sim, par, mu)]
   
-  d_pars[, N:= sum(l0_cfg$N_pt)]
+  d_pars[, N:= sum(l0_cfg$N)]
   
   
   d_post_1_ref <- rbind(
@@ -2163,15 +2327,20 @@ d_fig[, N := factor(N)]
 d_fig[, lab := factor(lab, levels = unique(d_fig$lab))]
 
 
-ggplot(data = d_fig, aes(x = N, y = mu_rd_2_1)) +
-  geom_boxplot(outlier.size = 0.1, lwd = 0.3) +
-  ggh4x::facet_grid2(lab  ~ . , 
+ggplot(data = d_fig, aes(x = mu_rd_2_1)) +
+  geom_vline(
+    data = d_fig[
+      , .(mu = mean(mu_rd_2_1)), keyby = .(lab, rd_trt, N)],
+    aes(xintercept = mu), lty = 2, lwd = 0.2
+  ) +
+  geom_density(lwd = 0.3) +
+  ggh4x::facet_grid2(lab  ~ N , 
              labeller = labeller(desc = label_wrap_gen(35)), 
              scales = "free",
              axes = "y",
              independent = "y")  +
-  scale_x_discrete("") +
-  scale_y_continuous("Risk difference", breaks = seq(-0.1, 0.1, by = 0.02)) +
+  scale_x_continuous("Risk difference") +
+  scale_y_continuous("Density") +
   theme_bw() +
   theme(text = element_text(size = 6),
         strip.text.y.right = element_text(angle = 0,
@@ -2223,7 +2392,7 @@ for(i in 1:length(l)){
   # observed data
   d_all <- copy(l[[i]]$d_all)
   d_all <- base::merge(d_all, d_enrolment , by = "ic")
-  d_all <- d_all[, .(y = sum(y), N = sum(N)), keyby = .(trt, reg, loc)]
+  d_all <- d_all[, .(y = sum(y), N = .N), keyby = .(trt, reg, loc)]
   d_all[, p_obs := y / N]
   
   d_all <- dcast(d_all, reg + loc ~ trt, value.var = "p_obs")

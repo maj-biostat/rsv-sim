@@ -51,6 +51,7 @@ suppressPackageStartupMessages(library("pbapply"))
 suppressPackageStartupMessages(library("poisson"))
 suppressPackageStartupMessages(library("tictoc"))
 suppressPackageStartupMessages(library("ggh4x"))
+suppressPackageStartupMessages(library("ggpubr"))
 suppressPackageStartupMessages(library("patchwork"))
 
 

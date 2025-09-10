@@ -386,6 +386,7 @@ run_sim02 <- function(){
   l_spec$ramp_up_days <-  g_cfgsc$ramp_up_days
   
   l_spec$fu_days <- g_cfgsc$fu_days
+  l_spec$fu_lab <- g_cfgsc$fu_lab
   
   # distribution of demographics (region and locality)
   l_spec$p_reg_alloc <- g_cfgsc$reg_alloc
