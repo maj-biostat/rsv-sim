@@ -105,7 +105,7 @@ for(i in 1:length(flist)){
 # Load all the files into a single list.
 
 # files of interest
-sim_lab <- "sim02-01"
+sim_lab <- "sim02-02"
 
 flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim02")
 toks <- list()
@@ -253,6 +253,10 @@ all of which are on the log-odds or log-odds ratio scale.
 
 d_fig <- data.table(
   x = rlogis(1e6, l[[1]]$cfg$prior$b_0[1], l[[1]]$cfg$prior$b_0[2])
+)
+
+d_fig <- data.table(
+  x = rlogis(1e6, 0, 1)
 )
 
 qq <- quantile(plogis(d_fig$x), prob = c(0.05, 0.95))
@@ -2134,7 +2138,7 @@ for(i in 1:length(l)){
   # observed trial data sets
   # d_all <- copy(l[[i]]$d_all)
   
-  d_pars <- dcast(d_pars, sim + ic ~ par, value.var = c("mu", "med", "se"))
+  d_pars <- dcast(d_pars, sim + ic ~ par, value.var = c("mu", "se"))
   
   # plot(density(d_pars[!is.na(med_rd_2_1) & ic == 2, med_rd_2_1]))
   # lines(density(d_pars[!is.na(mu_rd_2_1) & ic == 2, mu_rd_2_1]))
@@ -2151,16 +2155,16 @@ for(i in 1:length(l)){
   # plot(density(d_pars[ic == 2 & !is.na(mu_rd_2_1), mu_rd_2_1]))
   
   # locf
-  # d_pars[, `:=`(
-  #   mu_rd_2_1 = nafill(mu_rd_2_1, type = "locf"),
-  #   se_rd_2_1 = nafill(se_rd_2_1, type = "locf")
-  #               ), 
-  #        keyby = .(sim)]
+  d_pars[, `:=`(
+    mu_rd_2_1 = nafill(mu_rd_2_1, type = "locf"),
+    se_rd_2_1 = nafill(se_rd_2_1, type = "locf")
+                ),
+         keyby = .(sim)]
   #
   
   
   # TEMP
-  d_pars <- d_pars[!is.na(mu_rd_2_1)]
+  # d_pars <- d_pars[!is.na(mu_rd_2_1)]
   
   d_pars <- base::merge(d_pars, d_N, by = "ic")
   

@@ -1,6 +1,6 @@
 default:
   desc: "Null scenario"
-  nsim: 5000
+  nsim: 1000
   mc_cores: 40
   # example trials
   nex: 10
@@ -33,10 +33,10 @@ default:
   b_trt: [0,   0] 
   
   # priors - remember, these are all for logistic regression
-  pri_b_0: [-1.8, 0.6] # mean, scale for each par set
-  pri_b_reg: [0, 3]
-  pri_b_loc: [0, 3]
-  pri_b_trt: [0, 3]
+  pri_b_0: [-1.8, 0.6] 
+  pri_b_reg: [0, 2]
+  pri_b_loc: [0, 2]
+  pri_b_trt: [0, 2]
   
   # decision reference values
   dec_delta_sup: 0
