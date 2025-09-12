@@ -155,7 +155,7 @@ cannot be bothered to implement it in anything else at the moment).
 |:---|:----|:----------------|
 | 0.1 | 2025-06-27 | First version |
 | 0.2 | 2025-06-27 | Revise interim to start at 600.Introduce enrolment times to look at trial duration |
-| 0.3 | 2025-09-10 | Update accrual process, changed enrol rate assumptions, modified priors, refactor ref design, move to true unconditional estimates where applicable, modified the decision rule for futility. |
+| 0.3 | 2025-09-10 | Update accrual process, changed enrol rate assumptions, modified priors, refactor ref design, move to true unconditional estimates where applicable, modified the decision rule for futility, increased threshold for superiority to better control type-i. |
 \normalsize
 
 {{< pagebreak >}}
@@ -175,7 +175,7 @@ The results are based on simulation ID `r sim_lab` which had `r N_sims` simulate
 
 THRIVE is a pragmatic, observer-blinded, randomised controlled clinical trial of a dose of nirsevimab, versus standard care, from six months old to reduce medically attended LRIs among First Nations infants in the NT.
 
-Participants enter the study when the infant is 6 months (+90 days^[Possibly excessively large window that would necessitate some deeper consideration for age in our modeling.]) and are randomised (1:1) to standard of care versus a single dose of nirsevimab (active).
+Participants enter the study when the infant is 6 months (+90 days^[TODO Explore possibility of revising this window.]) and are randomised (1:1) to standard of care versus a single dose of nirsevimab (active).
 At `r l[[1]]$cfg$fu_lab` (`r l[[1]]$cfg$fu_days` days), the NT Notifiable Disease System medical records are searched for instances where laboratory-confirmed RSV (the primary outcome) was reported for the study participants.
 
 The design includes adaptation that permits early stopping for superiority or futility.
@@ -203,9 +203,9 @@ These values were selected arbitrarily and as a summary we have:
 + $\text{Pr}(locality = Urban | region = Darwin) = 0.35$
 + $\text{Pr}(locality = Remote | region = Darwin) = 0.65$
 
-Within each region/locality combination intervention vs soc is allocated 1:1.
+Within each region/locality combination intervention vs soc is allocated 1:1^[TODO Consider stratified randomisation on vaccination status.].
 
-Occurrence of medically attended RSV-LRI in the `r l[[1]]$cfg$fu_lab` after randomisation is simulated as a bernoulli random variable for each participant with probability computed from a linear risk model.
+Occurrence of medically attended RSV-LRI in the `r l[[1]]$cfg$fu_lab` after randomisation is simulated as a bernoulli random variable for each participant with the probability of failure computed from a linear risk model.
 While it is possible that participants will have one or more occurrences of medically attended RSV-LRI in the 6 months after randomisation, the outcome variable simply reflects any occurrence versus none.
 
 No interactions are considered in any aspect of the data generating process.
@@ -352,7 +352,7 @@ This approach has the appeal of simplicity and has a transparent interpretation,
 If no decisions are made in the interim analyses, the final analysis occurs at the maximum sample size after all participants have reached their primary endpoint.
 
 If the treatment strategy is successful, then the probability of medically attended RSV-LRI in the `r l[[1]]$cfg$fu_lab` after randomisation will be lower in the treatment arm than it will under standard of care.
-With the risk difference characterising treatment less standard of care risk, numerically negative values correspond to a beneficical treatment effect.
+With the risk difference characterising the outcome on treatment versus standard of care risk, numerically negative values correspond to a beneficical treatment effect.
 
 In the current design, superiority and futility rules are implemented for early stopping.
 
@@ -1448,8 +1448,8 @@ Each example provides a series of plots.
 The first set of plots provide information on accrual, analysis sets and parameter estimates.
 The accrual panel reflects the enrolment that was observed for the simulated trial. 
 As noted earlier, enrolment is assumed to follow a non-homogeneous poisson process with a ramp up period.
-The analysis set panel shows the sample size of the data entering into the analyses at each interim.
-The analysis sets will be smaller than the enrolment cohorts because only a subset of the cohort will have reached the `r l[[1]]$cfg$fu_lab` endpoint at the time of the analysis.
+The analysis-set panel shows the sample size of the data entering into the analyses at each interim.
+The analysis-sets will be smaller than the enrolment cohorts because only a subset of the cohort will have reached the `r l[[1]]$cfg$fu_lab` endpoint at the time of the analysis.
 The parameter estimates panel provides Bayesian posterior summaries and Frequentist point estimates and confidence intervals.
 These were derived from analogous model specifications and give a sense of the differences between the two approaches.
 
@@ -1469,7 +1469,7 @@ If the active treatment arm is deemed superior, the lower line range will be col
 #| code-summary: 'Example trial 1 trial data'
 
 id_scen = 1
-id_ex <- l[[id_scen]]$cfg$ex_trial_ix[1]
+id_ex <- l[[id_scen]]$cfg$ex_trial_ix[3]
 l_ex <- example_data(id_ex, id_scen)
 # str(l_ex)
 ```
@@ -1529,7 +1529,7 @@ suppressWarnings(
 #| code-summary: 'Example trial 2 trial data'
 
 id_scen = 4
-id_ex <- l[[id_scen]]$cfg$ex_trial_ix[1]
+id_ex <- l[[id_scen]]$cfg$ex_trial_ix[4]
 l_ex <- example_data(id_ex, id_scen)
 # str(l_ex)
 ```
@@ -1590,7 +1590,7 @@ suppressWarnings(
 #| code-summary: 'Example trial 3 trial data'
 
 id_scen = 5
-id_ex <- l[[id_scen]]$cfg$ex_trial_ix[1]
+id_ex <- l[[id_scen]]$cfg$ex_trial_ix[2]
 l_ex <- example_data(id_ex, id_scen)
 # str(l_ex)
 ```
@@ -1964,7 +1964,7 @@ d_t0 <- merge(
 
 For the fixed design, the duration of enrolment will be approximately the same irrespective of the scenario.
 However, for the adaptive designs, the duration of enrolment will vary by scenario as shown in @tbl-trial-enrol-duration.
-In the adaptive trial, the times at which the study would stop are influenced by a range of factors, including the rate at which enrolment occurs and the time to the endpoint.
+In the adaptive trial, the times at which the study would stop enrolment are influenced by a range of factors, of which both the rate at which enrolment occurs and the time to the endpoint are relevant.
 
 ```{r, eval = T}
 #| echo: FALSE
@@ -2029,7 +2029,6 @@ gt_tbl
 ### Randomised comparisons
 
 @tbl-n-at-trigger shows the expected number of participants **enrolled** onto each treatment for each decision type by scenarios.
-The duration of time to the end of follow up reflects the period of time to follow up the enrolled cohort, which is longer than the duration of follow up for the set of participants that actually enter into the analyses (the analysis set).
 
 ```{r, echo = F, eval = T}
 #| label: random_cmp_size
