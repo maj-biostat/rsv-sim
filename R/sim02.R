@@ -42,7 +42,8 @@ run_trial <- function(
     return_posterior = F
 ){
   
-  log_info("Entered  run_trial for trial ", ix)
+  log_info("Entered  run_trial for trial ", ix, " set seed to ", l_spec$seeds[ix])
+  set.seed(l_spec$seeds[ix])
   
   # Get enrolment times for arbitrary large set of patients
   # Simpler to produce enrol times all in one hit rather than try to do them 
@@ -323,12 +324,15 @@ run_trial <- function(
       ic <= l_spec$ic & par %in% c("rd_2_1"), 
       .(resolved = as.integer(sum(dec) > 0)), keyby = .(par)]
     
-    if(d_stop[par == "rd_2_1", resolved]) {
-      log_info("Stop trial all questions addressed ", ix)
-      stop_enrol <- T  
-    } 
-    
-    log_info("Trial ", ix, " updated allocation control ", l_spec$ia)
+    # adopt an unconditional perspective, that is, in the simulation we continue
+    # the trial to completion irrespective of what decisions occur.
+    # when the data is reported we account for stopping when necessary but 
+    # are able to produce unconditional (i.e. not impacted by the selection
+    # effect of stopping) estimates of the posterior means etc.
+    # if(d_stop[par == "rd_2_1", resolved]) {
+    #   log_info("Stop trial all questions addressed ", ix)
+    #   stop_enrol <- T
+    # }
     
     # next interim
     l_spec$ic <- l_spec$ic + 1
@@ -339,7 +343,11 @@ run_trial <- function(
   }
   
   # did we stop (for any reason) prior to the final interim?
-  stop_at <- l_spec$ic - 1
+  if(any(d_pr_dec$dec == 1)){
+    stop_at <- d_pr_dec[dec == 1, ic[1]]
+  } else {
+    stop_at <- l_spec$ic - 1  
+  }
   
   l_ret <- list(
     # data collected in the trial
@@ -436,12 +444,19 @@ run_sim02 <- function(){
     l_spec$p_darwin_urban * (l_spec$b_0 + l_spec$b_reg[2] + l_spec$b_loc[1] + l_spec$b_trt[2])  + 
     l_spec$p_darwin_remote * (l_spec$b_0 + l_spec$b_reg[2] + l_spec$b_loc[2] + l_spec$b_trt[2]) 
   
+  
+  l_spec$seed_init <- sample(1e6, size = 1)
+  set.seed(l_spec$seed_init)
+  l_spec$seeds <- sample(1e6, size = l_spec$nsim, replace = F)
+  
   if(l_spec$nex > 0){
     log_info("Creating ", pmin(l_spec$nex, g_cfgsc$nsim), " example trials with full posterior")
     l_spec$ex_trial_ix <- sort(sample(1:g_cfgsc$nsim, size = pmin(l_spec$nex, g_cfgsc$nsim), replace = F))
   }
   return_posterior <- T
   str(l_spec)
+  
+  
   
   e = NULL
   log_info("Start simulation")
