@@ -4,9 +4,16 @@ default:
   mc_cores: 40
   # example trials
   nex: 10
-  N_pt: [600, 200, 200]
-  # accrual per day (about 270 per year)
-  pt_per_day: 0.75
+  
+  # analysis increments
+  N_pt: [700, 100, 100, 100]
+  # efficacy analyses
+  anlys_sup: [0, 1, 1, 1]
+  # futility analyses
+  anlys_fut: [1, 1, 1, 1]
+  
+  # accrual per day
+  pt_per_day: 0.95
   ramp_up_days: 90
   
   # days fu to endpoint (deterministic)

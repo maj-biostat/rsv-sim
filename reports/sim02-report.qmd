@@ -105,7 +105,7 @@ for(i in 1:length(flist)){
 # Load all the files into a single list.
 
 # files of interest
-sim_lab <- "sim02-03"
+sim_lab <- "sim02-06"
 
 flist <- list.files(paste0(prefix_data, "/", sim_lab), pattern = "sim02")
 toks <- list()
@@ -743,7 +743,7 @@ ggplot(d_fig_1, aes(x = value, y = id,
 
 ```{r, echo = F, eval = T}
 #| label: cmarsv-lri
-#| code-summary: Cumulative participant medically attended RSV-LRI
+#| code-summary: Cumulative participants with medically attended RSV-LRI
 
 idsim <- 4
 i <- 1
@@ -1018,11 +1018,11 @@ example_data <- function(id_ex, id_scen = 1){
   d_freq_ex <- copy(l[[id_scen]]$d_freq[sim == id_ex & !(par %in% c("p_1", "p_2"))])
   
   # subset as if we had stopped enrolment when a decision was triggered
-  if(any(d_pr_dec_ex$dec == 1)){
-    d_all_ex <- d_all_ex[ic <= d_pr_dec_ex[dec == 1, ic[1]]] 
-    d_post_smry_ex <- d_post_smry_ex[ic <= d_pr_dec_ex[dec == 1, ic[1]]] 
-    d_post_all_ex <- d_post_all_ex[ic <= d_pr_dec_ex[dec == 1, ic[1]]] 
-    d_freq_ex <- d_freq_ex[ic <= d_pr_dec_ex[dec == 1, ic[1]]] 
+  if(any(d_pr_dec_ex$dec == 1 & d_pr_dec_ex$active == 1)){
+    d_all_ex <- d_all_ex[ic <= d_pr_dec_ex[dec == 1 & active == 1, ic[1]]] 
+    d_post_smry_ex <- d_post_smry_ex[ic <= d_pr_dec_ex[dec == 1 & active == 1, ic[1]]] 
+    d_post_all_ex <- d_post_all_ex[ic <= d_pr_dec_ex[dec == 1 & active == 1, ic[1]]] 
+    d_freq_ex <- d_freq_ex[ic <= d_pr_dec_ex[dec == 1 & active == 1, ic[1]]] 
   }
   
   
@@ -1053,6 +1053,7 @@ example_accrual <- function(l_ex, id_scen = 1){
 
   # Enrolment and followup trajectory
 
+  # participant level data
   d_fig_1 <- copy(l_ex$d_all_ex)
   d_fig_2 <- copy(l_ex$d_all_ex)
   d_fig_2  <- d_fig_2[order(tfu)]
@@ -1147,8 +1148,8 @@ example_analysis_sets <- function(l_ex, id_scen = 1){
   
   # subset to the required number of analyses as if we had stopped the trial
   # when the decision occurred
-  if(any(l_ex$d_pr_dec_ex$dec == 1)){
-    d_fig_1 <- d_fig_1[ia <= l_ex$d_pr_dec_ex[dec == 1, ic[1]]] 
+  if(any(l_ex$d_pr_dec_ex$dec == 1 & l_ex$d_pr_dec_ex$active == 1)){
+    d_fig_1 <- d_fig_1[ia <= l_ex$d_pr_dec_ex[dec == 1 & active == 1, ic[1]]] 
   }
   
   # d_fig_1 <- dcast(d_fig_1, ic + ia + trt ~ y_mis, value.var = "N")
@@ -1298,8 +1299,8 @@ example_posterior_inf <- function(l_ex, id_scen = 1){
   d_fig_3[, col := factor(col, levels = c("No decision", "Superior", "Futile"))]
   d_fig_3[is.na(col), col := ""]
   
-  if(any(l_ex$d_pr_dec_ex$dec == 1)){
-    d_fig_3 <- d_fig_3[ic <= l_ex$d_pr_dec_ex[dec == 1, ic[1]]]
+  if(any(l_ex$d_pr_dec_ex$dec == 1 & l_ex$d_pr_dec_ex$active == 1)){
+    d_fig_3 <- d_fig_3[ic <= l_ex$d_pr_dec_ex[dec == 1 & active == 1, ic[1]]]
   }
   
   # annotations
@@ -1685,7 +1686,8 @@ for(i in 1:length(l)){
   
   # compute the cumulative instances of a decision being made by sim, each 
   # decision type and by parameter
-  d_dec_1[, cdec := as.integer(cumsum(dec)>0), keyby = .(sim, rule)]
+  # The decision rule has to be both active at this interim and triggered 
+  d_dec_1[, cdec := as.integer(cumsum(dec & active)>0), keyby = .(sim, rule)]
   
   # for conditional estimates where enrolment was stopped (rather than an 
   # indicator being recorded) we can approximate the unconditional probabilities
@@ -1701,7 +1703,7 @@ for(i in 1:length(l)){
   d_dec_1 <- merge(d_dec_1, d_N, by = "ic")
   # cumulative proportion for which each decision quantity has been met by 
   # analysis and domain
-  d_dec_cumprob <- d_dec_1[, .(pr_val = mean(cdec)), keyby = .(ic, N, rule)]
+  d_dec_cumprob <- d_dec_1[, .(pr_val = mean(cdec)), keyby = .(ic, N, rule, active)]
   
   b_trt <- unlist(l_cfg$b_trt)
   d_cprob_dec <- rbind(
@@ -1735,6 +1737,8 @@ for(i in 1:length(l)){
   )
 
 }
+
+d_cprob_dec[active == 0, pr_val := NA]
 
 # dcast(d_cprob_dec, scenario + desc + rd_trt ~ rule + N, value.var = "pr_val")
 ```
@@ -1785,13 +1789,21 @@ g_tbl <- d_tbl_1_cur |>
     columns = 3:ncol(d_tbl_1_cur),
     align = "center"
   )  |> 
+  sub_missing(
+    missing_text = "inactive"
+  ) |>
   cols_merge(
-    columns = c("sup_600", "fut_600"
+    columns = c("sup_700", "fut_700"
                 ),
     pattern = "<<{1}>><< ({2})>>"
   ) |> 
   cols_merge(
     columns = c("sup_800", "fut_800"
+                ),
+    pattern = "<<{1}>><< ({2})>>"
+  )  |> 
+  cols_merge(
+    columns = c("sup_900", "fut_900"
                 ),
     pattern = "<<{1}>><< ({2})>>"
   )  |> 
@@ -1814,8 +1826,9 @@ g_tbl <- d_tbl_1_cur |>
   )  |>
   cols_label(
     rd_trt = "Effect size (risk diff)",
-    sup_600 = html("600"),
+    sup_700 = html("700"),
     sup_800 = html("800"),
+    sup_900 = html("900"),
     sup_1000 = html("1000"),
     ref_sup_1000 = html("Fixed design")
   ) |>
@@ -1832,13 +1845,24 @@ g_tbl
 
 ```{r, echo = F, eval = T}
 #| label: fig-cprob-decision
-#| fig-cap: 'Cumulative probability of superiority (futility) at each interim'
+#| fig-cap: 'Cumulative probability of superiority (futility) at each interim (cross shows fixed design)'
 #| fig-height: 7
 #| fig-width: 7
 #| fig-pos: H
 
 
 d_fig_1 <- copy(d_cprob_dec)
+d_fig_1[, design := "Adaptive"]
+d_fig_2 <- copy(d_cprob_dec_ref)
+d_fig_2[, N := max(d_fig_1$N)]
+d_fig_2[, design := "Fixed"]
+d_fig_2[, par := NULL]
+d_fig_2[, active := 1]
+d_fig_2 <- merge(unique(d_fig_1[, .(scenario, rd_trt)]), d_fig_2, by = c(
+  "scenario"
+))
+d_fig_1 <- rbind(d_fig_1, d_fig_2, fill = T)
+
 
 d_fig_1[, `:=`(
   rd_trt = factor(rd_trt, levels = sort(d_scenarios$rd, decreasing = T)    ))]
@@ -1855,8 +1879,16 @@ d_fig_1[, desc := factor(
     )
 )]
 
-ggplot(d_fig_1, aes(x = N, y = pr_val, group = rule, col = rule, lty = rule)) +
+
+
+p <- ggplot(d_fig_1[design == "Adaptive"], aes(
+  x = N, y = pr_val, group = rule, col = rule, lty = rule)) +
   geom_line(lwd = 0.25) +
+  geom_point(size = 0.5) +
+  geom_point(
+    data = d_fig_1[design == "Fixed"],
+    aes(x = N, y = pr_val, group = rule, col = rule),
+    size = 0.8, shape = 3, inherit.aes = F) +
   # scale_color_discrete("") +
   scale_linetype_manual("", values = c("solid", "dashed")) +
   scale_color_manual("", values = c("black", "red")) +
@@ -1883,6 +1915,8 @@ ggplot(d_fig_1, aes(x = N, y = pr_val, group = rule, col = rule, lty = rule)) +
     axis.title.x = element_text(size = 7),
     legend.text = element_text(size = 7)
   )
+
+suppressWarnings(print(p))
   
 ```
 
@@ -1930,7 +1964,7 @@ for(i in 1:length(l)){
   d_dec_1 <- copy(l[[i]]$d_pr_dec)
   
   # subsetting the data to the point at which the decision to stop was made
-  d_tmp <- d_dec_1[dec == 1, .SD[1], by = sim]
+  d_tmp <- d_dec_1[dec == 1 & active == 1, .SD[1], by = sim]
   d_dec_1 <- rbind(
     d_tmp,
     d_dec_1[!(sim %in% d_tmp$sim), .SD[.N], by = sim]
@@ -2057,7 +2091,7 @@ for(i in 1:length(l)){
   
   
   # subsetting the data to the point at which the decision to stop was made
-  d_tmp <- d_dec_1[dec == 1, .SD[1], by = sim]
+  d_tmp <- d_dec_1[dec == 1 & active == 1, .SD[1], by = sim]
   d_dec_1 <- rbind(
     d_tmp,
     d_dec_1[!(sim %in% d_tmp$sim), .SD[.N], by = sim]
@@ -2066,8 +2100,8 @@ for(i in 1:length(l)){
   setnames(d_dec_1, "ic", "ic_stop")
   # for each scenario, there will be some trials that stop for sup, some that
   # stop for fut and some where no decision gets made
-  d_dec_1[rule == "sup" & dec == 1, decision := "sup"]
-  d_dec_1[rule == "fut" & dec == 1, decision := "fut"]
+  d_dec_1[rule == "sup" & dec == 1 & active == 1, decision := "sup"]
+  d_dec_1[rule == "fut" & dec == 1 & active == 1, decision := "fut"]
   d_dec_1[dec == 0, decision := "-"]
 
   # only take the participant data up to where they stopped in each trial
@@ -2291,17 +2325,17 @@ for(i in 1:length(l)){
 ```{r, eval = T}
 #| echo: FALSE
 #| label: tbl-post-rd
-#| tbl-cap: 'Parameter estimation - risk difference (expectation of posterior means and 95% interval)'
+#| tbl-cap: 'Parameter estimation (x100) - risk difference (expectation of posterior means and 95% interval)'
 #| tbl-pos: H
 
 d_tbl_1_cur <- d_post_1[,
-                 .(rd = mean(mu_rd_2_1),
-                   q_025 = quantile(mu_rd_2_1, prob = 0.025),
-                   q_975 = quantile(mu_rd_2_1, prob = 0.975)), 
+                 .(rd = mean(100*mu_rd_2_1),
+                   q_025 = quantile(100*mu_rd_2_1, prob = 0.025),
+                   q_975 = quantile(100*mu_rd_2_1, prob = 0.975)), 
                  keyby = .(scenario, desc, rd_trt, ic, N)]
 # setorderv(d_fig, cols = "scenario", order = -1L)
 d_tbl_1_cur[, desc := factor(desc, levels = unique(d_post_1$desc))]
-
+d_tbl_1_cur[, rd_trt := 100 * rd_trt]
 
 d_tbl_1_cur <- dcast(d_tbl_1_cur, scenario + desc + rd_trt ~ N, value.var = list("rd", "q_025", "q_975"))
 
@@ -2311,17 +2345,18 @@ ci_names <- function(x = 500){
 setcolorder(
   d_tbl_1_cur, 
   c("scenario", "desc",  "rd_trt", 
-    ci_names(600), ci_names(800), ci_names(1000)))
+    ci_names(700), ci_names(800), ci_names(900), ci_names(1000)))
 
 
 
 d_tbl_2_cur <- d_post_1_ref[,
-                 .(mu = mean(mu),
-                   q_025 = quantile(mu, prob = 0.025),
-                   q_975 = quantile(mu, prob = 0.975)), 
+                 .(mu = mean(100*mu),
+                   q_025 = quantile(100*mu, prob = 0.025),
+                   q_975 = quantile(100*mu, prob = 0.975)), 
                  keyby = .(scenario, par, N)]
 d_tbl_2_cur <- dcast(
   d_tbl_2_cur, scenario  ~ N, value.var = list("mu", "q_025", "q_975"))
+
 
 setnames(
   d_tbl_2_cur, 
@@ -2354,11 +2389,15 @@ g_tbl <- d_tbl_1_cur |>
     align = "right"
   )   |> 
   cols_merge(
-    columns = c("rd_600", "q_025_600", "q_975_600"),
+    columns = c("rd_700", "q_025_700", "q_975_700"),
     pattern = "<<{1}>><< ({2}, {3})>>"
   )  |> 
   cols_merge(
     columns = c("rd_800", "q_025_800", "q_975_800"),
+    pattern = "<<{1}>><< ({2}, {3})>>"
+  )  |> 
+  cols_merge(
+    columns = c("rd_900", "q_025_900", "q_975_900"),
     pattern = "<<{1}>><< ({2}, {3})>>"
   )  |> 
   cols_merge(
@@ -2370,8 +2409,9 @@ g_tbl <- d_tbl_1_cur |>
     pattern = "<<{1}>><< ({2}, {3})>>"
   )  |>
   cols_label(
-    rd_600 = "600",
+    rd_700 = "700",
     rd_800 = "800",
+    rd_900 = "900",
     rd_1000 = "1000",
     mu_ref = "Fixed design"
   )  |>
@@ -2384,7 +2424,7 @@ g_tbl <- d_tbl_1_cur |>
     latex.use_longtable = TRUE,
     latex.header_repeat = TRUE 
     ) |>
-   fmt_number(decimals = 3, drop_trailing_zeros = TRUE)
+   fmt_number(decimals = 1, drop_trailing_zeros = TRUE)
 
 g_tbl
 
@@ -2473,7 +2513,7 @@ for(i in 1:length(l)){
   d_dec_1 <- copy(l[[i]]$d_pr_dec)
     
   # subsetting the data to the point at which the decision to stop was made
-  d_tmp <- d_dec_1[dec == 1, .SD[1], by = sim]
+  d_tmp <- d_dec_1[dec == 1 & active == 1, .SD[1], by = sim]
   d_dec_1 <- rbind(
     d_tmp,
     d_dec_1[!(sim %in% d_tmp$sim), .SD[.N], by = sim]

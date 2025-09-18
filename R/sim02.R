@@ -57,7 +57,7 @@ run_trial <- function(
   # follow up time - deterministic based on follow up length
   loc_t <- loc_t0 + l_spec$fu_days
   
-  # lambda = 0.75
+  # lambda = 0.95
   # # ramp up over x months
   # rho = function(t) pmin(t/120, 1)
   # 
@@ -98,9 +98,14 @@ run_trial <- function(
     ic = 1:N_analys,
     rule = factor(g_rule_type),
     par = factor(g_par_rd),
+    active = NA_integer_,
     p = NA_real_,
     dec = NA_integer_
   )
+  
+  # stopping will only be considered if the rule is active for the cohort
+  d_pr_dec[rule == "sup", active := l_spec$anlys_sup]
+  d_pr_dec[rule == "fut", active := l_spec$anlys_fut]
   
   # store all simulated trial pt data
   d_all <- data.table()
@@ -318,11 +323,13 @@ run_trial <- function(
       )
     ]
     
+    # note that we no longer rely on d_stop so we do not require the
+    # following:
     
     # have we answered all questions of interest?
-    d_stop <- d_pr_dec[
-      ic <= l_spec$ic & par %in% c("rd_2_1"), 
-      .(resolved = as.integer(sum(dec) > 0)), keyby = .(par)]
+    # d_stop <- d_pr_dec[
+    #   ic <= l_spec$ic & par %in% c("rd_2_1"), 
+    #   .(resolved = as.integer(sum(dec) > 0)), keyby = .(par)]
     
     # adopt an unconditional perspective, that is, in the simulation we continue
     # the trial to completion irrespective of what decisions occur.
@@ -389,6 +396,11 @@ run_sim02 <- function(){
   
   # N by analysis
   l_spec$N <- g_cfgsc$N_pt
+  
+  # efficacy analyses
+  l_spec$anlys_sup <- g_cfgsc$anlys_sup
+  # futility analyses
+  l_spec$anlys_fut <- g_cfgsc$anlys_fut
   
   l_spec$pt_per_day <- g_cfgsc$pt_per_day
   l_spec$ramp_up_days <-  g_cfgsc$ramp_up_days

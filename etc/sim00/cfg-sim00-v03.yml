@@ -38,7 +38,7 @@ default:
   
   # decision reference values
   dec_delta_sup: 0
-  dec_delta_fut: -0.02
+  dec_delta_fut: 0
   # decision probability thresholds
   dec_thresh_sup: 0.975
   dec_thresh_fut: 0.200
