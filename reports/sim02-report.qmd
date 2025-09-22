@@ -418,7 +418,7 @@ Modifying these decision thresholds will result in differing operating character
 
 # Scenarios
 
-Each scenario adopts a maximum sample size of 1000 with interim analyses run after 600 and 800 enrolments have occurred, with only those that have reached their primary endpoint entering into the analyses.
+Each scenario adopts a maximum sample size of 1000 with interim analyses run after `r paste0(cumsum(l[[1]]$cfg$N)[-length(l[[1]]$cfg$N)], collapse = ", ")` enrolments have occurred, with only those that have reached their primary endpoint entering into the analyses.
 As a linear risk model in the data generation process, the treatment effects are specified as risk differences.
 
 ```{r, echo = F, eval = T}
